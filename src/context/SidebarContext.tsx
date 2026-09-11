@@ -1,6 +1,21 @@
-import { createContext, useContext, useState, useEffect } from "react";
+// ============================================================
+// src/context/SidebarContext.tsx
+// ============================================================
 
-type SidebarContextType = {
+/**
+ * CONTEXT: SidebarContext
+ * 
+ * Adapté du template TailAdmin pour:
+ * - Gérer l'état expand/collapse/hover
+ * - Synchroniser avec le store Zustand
+ * - Support mobile
+ * 
+ * Le context reste léger, le gros de la logique RBAC est dans Zustand
+ */
+
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
+
+interface SidebarContextType {
   isExpanded: boolean;
   isMobileOpen: boolean;
   isHovered: boolean;
@@ -11,7 +26,7 @@ type SidebarContextType = {
   setIsHovered: (isHovered: boolean) => void;
   setActiveItem: (item: string | null) => void;
   toggleSubmenu: (item: string) => void;
-};
+}
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
@@ -35,7 +50,7 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 768;
+      const mobile = window.innerWidth < 1024; // lg breakpoint
       setIsMobile(mobile);
       if (!mobile) {
         setIsMobileOpen(false);
@@ -44,23 +59,20 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
 
     handleResize();
     window.addEventListener("resize", handleResize);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const toggleSidebar = () => {
+  const toggleSidebar = useCallback(() => {
     setIsExpanded((prev) => !prev);
-  };
+  }, []);
 
-  const toggleMobileSidebar = () => {
+  const toggleMobileSidebar = useCallback(() => {
     setIsMobileOpen((prev) => !prev);
-  };
+  }, []);
 
-  const toggleSubmenu = (item: string) => {
+  const toggleSubmenu = useCallback((item: string) => {
     setOpenSubmenu((prev) => (prev === item ? null : item));
-  };
+  }, []);
 
   return (
     <SidebarContext.Provider

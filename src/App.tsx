@@ -1,84 +1,45 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router";
-import SignIn from "./pages/AuthPages/SignIn";
-import SignUp from "./pages/AuthPages/SignUp";
-import NotFound from "./pages/OtherPage/NotFound";
-import UserProfiles from "./pages/UserProfiles";
-import Videos from "./pages/UiElements/Videos";
-import Images from "./pages/UiElements/Images";
-import Alerts from "./pages/UiElements/Alerts";
-import Badges from "./pages/UiElements/Badges";
-import Avatars from "./pages/UiElements/Avatars";
-import Buttons from "./pages/UiElements/Buttons";
-import LineChart from "./pages/Charts/LineChart";
-import BarChart from "./pages/Charts/BarChart";
-import Calendar from "./pages/Calendar";
-import BasicTables from "./pages/Tables/BasicTables";
-import FormElements from "./pages/Forms/FormElements";
-import Blank from "./pages/Blank";
-import AppLayout from "./layout/AppLayout";
-import { ScrollToTop } from "./components/common/ScrollToTop";
-import WelcomePage from "./pages/welcome/WelcomePage";
-import AmbassadorDashboard from "./pages/Dashboard/AmbassadorDashboard";
-import RequestsPage from "./pages/Demandes/RequestsPage";
-import RequestDetailPage from "./pages/Demandes/RequestDetailPage";
-import UsersManagementPage from "./pages/utilisateurs/UsersManagementPage";
-import AppointmentsPage from "./pages/appointments/MyAppointmentsPage";
-import MyAgendaPage from "./pages/appointments/MyAgendaPage";
+// ============================================================
+// src/App.tsx
+// ============================================================
 
-export default function App() {
+/**
+ * POINT D'ENTRÉE DE L'APPLICATION
+ * 
+ * Configure:
+ * - Router
+ * - Providers globaux
+ * - Thème initial
+ */
+
+import { RouterProvider } from "react-router-dom";
+import { router } from "./routes";
+import { useEffect } from "react";
+import { useUIStore } from "./store/uiStore";
+import { ToastContainer } from './components/ui/Toast';
+
+function App() {
+  const { theme } = useUIStore();
+
+  // Appliquer le thème au chargement
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else if (theme === 'light') {
+      root.classList.remove('dark');
+    } else {
+      // System
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      prefersDark ? root.classList.add('dark') : root.classList.remove('dark');
+    }
+  }, [theme]);
+
   return (
     <>
-      <Router>
-        <ScrollToTop />
-        <Routes>
-          {/* Welcome Page */}
-          <Route index path="/" element={<WelcomePage />} />
-          {/* Dashboard Layout */}
-          <Route element={<AppLayout />}>
-            <Route index path="/dashboard" element={<AmbassadorDashboard />} />
-
-            {/* Others Page */}
-            
-            <Route path="/profile" element={<UserProfiles />} />
-            <Route path="/calendar" element={<Calendar />} />
-            <Route path="/blank" element={<Blank />} />
-
-            {/* Forms */}
-            <Route path="/form-elements" element={<FormElements />} />
-
-            {/* Tables */}
-            <Route path="/basic-tables" element={<BasicTables />} />
-
-            {/* Ui Elements */}
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/avatars" element={<Avatars />} />
-            <Route path="/badge" element={<Badges />} />
-            <Route path="/buttons" element={<Buttons />} />
-            <Route path="/images" element={<Images />} />
-            <Route path="/videos" element={<Videos />} />
-
-            {/* Charts */}
-            <Route path="/line-chart" element={<LineChart />} />
-            <Route path="/bar-chart" element={<BarChart />} />
-
-            {/* Demande */}
-            <Route path="/service/demandes" element={<RequestsPage />} />
-            <Route path="/service/demandes/:id" element={<RequestDetailPage />} />
-
-            {/* Utilisateurs */}
-            <Route path="/service/gestion/utilisateurs" element={<UsersManagementPage />} />
-            <Route path="/agent/rendez-vous" element={<AppointmentsPage />} />
-            <Route path="/agent/rendez-vous/mon-agenda" element={<MyAgendaPage />} />
-          </Route>
-
-          {/* Auth Layout */}
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
-
-          {/* Fallback Route */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Router>
+      <RouterProvider router={router} />
+      <ToastContainer />
     </>
   );
 }
+
+export default App;

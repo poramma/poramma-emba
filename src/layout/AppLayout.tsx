@@ -1,37 +1,60 @@
-import { SidebarProvider, useSidebar } from "../context/SidebarContext";
-import { Outlet } from "react-router";
-import AppHeader from "./AppHeader";
-import Backdrop from "./Backdrop";
-import AppSidebar from "./AppSidebar";
+// ============================================================
+// src/layout/AppLayout.tsx
+// ============================================================
 
-const LayoutContent: React.FC = () => {
+/**
+ * LAYOUT GLOBAL
+ * 
+ * Structure:
+ * - Sidebar (gauche, fixe)
+ * - Header (haut, sticky)
+ * - Content (scrollable)
+ * - Backdrop (mobile)
+ * 
+ * Préserve le comportement du template avec les marges dynamiques
+ */
+
+import { Outlet } from "react-router-dom";
+import { useSidebar } from "../context/SidebarContext";
+import AppHeader from "./AppHeader";
+import AppSidebar from "./AppSidebar";
+import Breadcrumb from "./Breadcrumb";
+import Backdrop from "./Backdrop";
+import ScrollToTop from "./ScrollToTop";
+
+const AppLayout: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
   return (
-    <div className="min-h-screen xl:flex">
-      <div>
-        <AppSidebar />
-        <Backdrop />
-      </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Sidebar */}
+      <AppSidebar />
+      
+      {/* Backdrop mobile */}
+      <Backdrop />
+      
+      {/* Contenu principal */}
       <div
-        className={`flex-1 transition-all duration-300 ease-in-out ${
-          isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]"
-        } ${isMobileOpen ? "ml-0" : ""}`}
+        className={`transition-all duration-300 ease-in-out min-h-screen
+          ${isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]"}
+          ${isMobileOpen ? "ml-0" : ""}
+        `}
       >
+        {/* Header */}
         <AppHeader />
-        <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
-          <Outlet />
-        </div>
+        
+        {/* Zone de contenu */}
+        <main className="p-4 md:p-6 lg:p-8">
+          <div className="mx-auto max-w-7xl">
+            <Breadcrumb />
+            <Outlet />
+          </div>
+        </main>
       </div>
+      
+      {/* Scroll to top */}
+      <ScrollToTop />
     </div>
-  );
-};
-
-const AppLayout: React.FC = () => {
-  return (
-    <SidebarProvider>
-      <LayoutContent />
-    </SidebarProvider>
   );
 };
 

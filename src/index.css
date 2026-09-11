@@ -1,7 +1,111 @@
+/* =======================
+   🎨 Charte Graphique Mali
+   ======================= */
+
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Poppins:wght@400;600;700&display=swap');
+/* Import Tailwind CSS */
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap")
 layer(base);
 
 @import "tailwindcss";
+
+/* =======================
+   Tailwind base imports
+   ======================= */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* Variables globales */
+:root {
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  --font-heading: 'Poppins', var(--font-sans);
+
+  --brand-50: #ECF9F0;
+  --brand-100: #CFF0DB;
+  --brand-300: #5FC389;
+  --brand-500: #007A3D;
+  --brand-700: #00572C;
+
+  --gold-50: #FFF9EB;
+  --gold-300: #FFD66A;
+  --gold-500: #FFCB05;
+  --gold-700: #E6B400;
+
+  --accent-50: #FFEDEE;
+  --accent-300: #FF7A78;
+  --accent-500: #D62828;
+  --accent-700: #A52121;
+  
+
+  --neutral-50: #FBFBFD;
+  --neutral-100: #F3F4F6;
+  --neutral-300: #E5E7EB;
+  --neutral-500: #6B7280;
+  --neutral-700: #111827;
+  --neutral-900: #0C111D;
+  --neutral-950: #0A0D14;
+
+
+  --success: #16A34A;
+  --info: #0284C7;
+  --warning: #F59E0B;
+  --error: #DC2626;
+  --danger: #DC2626;
+  --danger-500: #b14242;
+  --destructive: #DC2626;
+  --destructive-500: rgb(152, 69, 69);
+  
+  --accent-pink: #EE46BC;
+  --accent-purple: #7A5AF8;
+
+    /* Variables TailAdmin surchargées */
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-300: var(--brand-300);
+  --color-brand-500: var(--brand-500);
+  --color-brand-700: var(--brand-700);
+  
+
+  --color-gold-50: var(--gold-50);
+  --color-gold-300: var(--gold-300);
+  --color-gold-500: var(--gold-500);
+  --color-gold-700: var(--gold-700);
+
+  --color-accent-50: var(--accent-50);
+  --color-accent-300: var(--accent-300);
+  --color-accent-500: var(--accent-500);
+  --color-accent-700: var(--accent-700);
+
+  --color-neutral-50: var(--neutral-50);
+  --color-neutral-100: var(--neutral-100);
+  --color-neutral-300: var(--neutral-300);
+  --color-neutral-500: var(--neutral-500);
+  --color-neutral-700: var(--neutral-700);
+
+  --color-success: var(--success);
+  --color-info: var(--info);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-danger: var(--danger);
+  --color-danger-500: var(--danger-500);
+  --color-destructive: var(--destructive);
+  --color-destructive-500: var(--destructive-500);
+
+
+}
+
+/* Mode sombre */
+.dark :root {
+  --brand-500: #5FC389; /* plus doux */
+  --gold-500: #FFD66A;
+  --accent-500: #FF7A78;
+  --neutral-50: #111827;
+  --neutral-700: #F3F4F6;
+}
+
 
 @custom-variant dark (&:is(.dark *));
 
@@ -68,7 +172,7 @@ layer(base);
   --color-blue-light-950: #062c41;
 
   --color-gray-25: #fcfcfd;
-  --color-gray-50: #f9fafb;
+  --color-gray-50: #FBFBFD;
   --color-gray-100: #f2f4f7;
   --color-gray-200: #e4e7ec;
   --color-gray-300: #d0d5dd;
@@ -476,7 +580,7 @@ span.flatpickr-weekday,
   @apply !bg-none;
 }
 .flatpickr-day.inRange {
-  box-shadow: -5px 0 0 #f9fafb, 5px 0 0 #f9fafb !important;
+  box-shadow: -5px 0 0 #FBFBFD, 5px 0 0 #FBFBFD !important;
   @apply dark:!shadow-datepicker;
 }
 .flatpickr-day.inRange,
@@ -775,4 +879,115 @@ span.flatpickr-weekday,
 
 .simplebar-scrollbar.simplebar-visible:before {
   @apply opacity-100;
+}
+
+
+/* ======================================================
+   Custom Scrollbar
+====================================================== */
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gray-300) transparent;
+}
+
+.dark .custom-scrollbar {
+  scrollbar-color: var(--color-gray-600) transparent;
+}
+
+/* Chrome / Edge / Safari */
+.custom-scrollbar::-webkit-scrollbar {
+  @apply w-1.5 h-1.5;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-gray-300 dark:bg-gray-600;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-500;
+}
+
+.custom-scrollbar::-webkit-scrollbar-corner {
+  @apply bg-transparent;
+}
+
+
+/* =======================
+   ✨ Animations personnalisées
+   ======================= */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+.animate-shimmer {
+  background: linear-gradient(90deg, var(--neutral-100) 25%, var(--neutral-50) 50%, var(--neutral-100) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@keyframes progress {
+  0% { background-position: 1rem 0; }
+  100% { background-position: 0 0; }
+}
+
+.animate-progress {
+  animation: progress 1s linear infinite;
+}
+
+.progress-striped {
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.15) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.15) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 1rem 1rem;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-modal-slide-in {
+  animation: modalSlideIn 0.2s ease-out;
+}
+
+/* src/index.css ou src/App.css */
+
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
 }
