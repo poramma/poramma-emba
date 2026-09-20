@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Variables d environnement locales (le déploiement définit VITE_* dans le tableau de bord Vercel ; voir .env.example)
+.env
+.env.local
+.env.*.local
