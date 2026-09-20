@@ -6,9 +6,9 @@ import { useEffect } from 'react';
 import { useDemandeStore } from '../../store/demandeStore';
 import { useRendezVousStore } from '../../store/rendezVousStore';
 import { FileText, Calendar, UserCheck, AlertCircle, Clock } from 'lucide-react';
-import { formatDateFR } from '../../lib/date';
-import { AppStatus } from '../../types/demande';
-import { RDVType, RDVStatus } from '../../types/rendez-vous';
+import { formatDateShort } from '../../lib/date';
+import { AppStatus, Demande } from '../../types/demande';
+import { RDVType, RDVStatus, RendezVous } from '../../types/rendez-vous';
 
 type ActiviteType = 'DEMANDE' | 'RENDEZ_VOUS' | 'VALIDATION' | 'URGENCE' | 'TRAITEMENT';
 
@@ -37,14 +37,14 @@ const colors: Record<ActiviteType, string> = {
   TRAITEMENT: 'text-amber-600 bg-amber-50',
 };
 
-function getDemandeType(demande: typeof demandes[number]): ActiviteType {
+function getDemandeType(demande: Demande): ActiviteType {
   if (demande.priority === 'URGENT' || demande.priority === 'HIGH') return 'URGENCE';
   if (demande.status === AppStatus.APPROVED || demande.status === AppStatus.COMPLETED) return 'VALIDATION';
   if (demande.status === AppStatus.IN_REVIEW || demande.status === AppStatus.UNDER_VERIFICATION) return 'TRAITEMENT';
   return 'DEMANDE';
 }
 
-function getRdvType(rdv: typeof rendezVous[number]): ActiviteType {
+function getRdvType(rdv: RendezVous): ActiviteType {
   if (rdv.type === RDVType.URGENCE) return 'URGENCE';
   if (rdv.status === RDVStatus.COMPLETED) return 'VALIDATION';
   return 'RENDEZ_VOUS';
@@ -108,7 +108,7 @@ export function ActiviteRecente() {
                 <p className="text-xs text-gray-500">{act.description}</p>
               </div>
               <span className="text-xs text-gray-400 shrink-0">
-                {formatDateFR(act.date)}
+                {formatDateShort(act.date)}
               </span>
             </a>
           );

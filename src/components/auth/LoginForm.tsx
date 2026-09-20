@@ -19,22 +19,15 @@ export function LoginForm() {
     e.preventDefault();
     clearError();
     
-    // ─── INTEGRATION BACKEND ──────────────────────────────────────────
-    // const response = await api.post('/auth/login', { email, password });
-    // const { user, token, refreshToken } = response.data;
-    // localStorage.setItem('token', token);
-    // localStorage.setItem('refreshToken', refreshToken);
-    // setUser(user);
-    // ─── FIN INTEGRATION BACKEND ──────────────────────────────────────
-    
-    // MOCK pour le développement
     await login(email, password, rememberMe);
     
     // Redirection post-login
     const user = useAuthStore.getState().user;
     if (user) {
       if (user.activeRole?.name === RoleName.RECEPTIONIST) {
-        navigate('/rendez-vous/urgence');
+        navigate('/accueil');
+      } else if (user.activeRole?.name === RoleName.CULTURAL_ADVISOR) {
+        navigate('/culture');
       } else {
         navigate('/dashboard');
       }

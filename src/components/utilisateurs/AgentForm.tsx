@@ -36,6 +36,7 @@ const ROLE_OPTIONS = [
   { value: RoleName.SENIOR_AGENT, label: 'Senior Agent' },
   { value: RoleName.AGENT, label: 'Agent' },
   { value: RoleName.RECEPTIONIST, label: 'Accueil' },
+  { value: RoleName.CULTURAL_ADVISOR, label: 'Conseiller Culturel' },
   { value: RoleName.AUDITOR, label: 'Auditeur' },
 ];
 

@@ -10,14 +10,15 @@ import { PermissionCode, RoleName } from '../types';
 // ============================================================
 
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
+const ForgotPasswordPage = lazy(() => import('../pages/auth/ForgotPasswordPage'));
 const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'));
 const DemandesListPage = lazy(() => import('../pages/demandes/DemandesListPage'));
 const DemandeDetailPage = lazy(() => import('../pages/demandes/DemandeDetailsPage'));
 const DemandeTraitementPage = lazy(() => import('../pages/demandes/DemandeTraitementPage'));
 const CalendrierPage = lazy(() => import('../pages/rendez-vous/CalendrierPage'));
-const UrgencePage = lazy(() => import('../pages/rendez-vous/UrgencePage'));
 const DisponibilitesPage = lazy(() => import('../pages/rendez-vous/DisponibilitesPage'));
 const EtudiantsListPage = lazy(() => import('../pages/etudiants/EtudiantsListPage'));
+const EtudiantDetailPage = lazy(() => import('../pages/etudiants/EtudiantDetailPage'));
 const ValidationPage = lazy(() => import('../pages/etudiants/ValidationPage'));
 const DocumentsPage = lazy(() => import('../pages/documents/DocumentsPage'));
 const ArchivesPage = lazy(() => import('../pages/documents/ArchivesPage'));
@@ -31,6 +32,8 @@ const NewCampagnePage = lazy(() => import('../pages/communication/NewCampagnePag
 const CampagneDetailPage = lazy(() => import('../pages/communication/CampagneDetailPage'));
 const EditCampagnePage = lazy(() => import('../pages/communication/EditCampagnePage'));
 const NotificationCenterPage = lazy(() => import('../pages/communication/NotificationCenterPage'));
+const MessagesPage = lazy(() => import('../pages/messagerie/MessagesPage'));
+const ThreadDetailPage = lazy(() => import('../pages/messagerie/ThreadDetailPage'));
 const JournalPage = lazy(() => import('../pages/audit/JournalPage'));
 const ServicesPage = lazy(() => import('../pages/services/ServicesPage'));
 const HorairesPage = lazy(() => import('../pages/services/HorairesPage'));
@@ -39,6 +42,13 @@ const AgentAffectationPage = lazy(() => import('../pages/services/AgentAffectati
 const AgentsPage = lazy(() => import('../pages/utilisateurs/AgentsPage'));
 const AgentDetailPage = lazy(() => import('../pages/utilisateurs/AgentDetailPage'));
 const RolesPermissionsPage = lazy(() => import('../pages/utilisateurs/RolesPermissionsPage'));
+const AgentRequestsPage = lazy(() => import('../pages/utilisateurs/AgentRequestsPage'));
+const AccueilPage = lazy(() => import('../pages/accueil/AccueilPage'));
+const CulturePage = lazy(() => import('../pages/culture/CulturePage'));
+const CultureThreadsPage = lazy(() => import('../pages/culture/CultureThreadsPage'));
+const CultureThreadPage = lazy(() => import('../pages/culture/CultureThreadPage'));
+const SupportTicketsPage = lazy(() => import('../pages/support/SupportTicketsPage'));
+const SupportTicketDetailPage = lazy(() => import('../pages/support/SupportTicketDetailPage'));
 const RapportsPage = lazy(() => import('../pages/stats/RapportsPage'));
 const ProfilePage = lazy(() => import('../pages/profile/ProfilePage'));
 const UnauthorizedPage = lazy(() => import('../pages/erreurs/UnauthorizedPage'));
@@ -74,6 +84,11 @@ export const PUBLIC_ROUTES: RouteDefinition[] = [
     component: LoginPage,
     label: 'Connexion',
   },
+  {
+    path: '/reset-password',
+    component: ForgotPasswordPage,
+    label: 'Mot de passe oublié',
+  },
 ];
 
 // ============================================================
@@ -90,6 +105,50 @@ export const PROTECTED_ROUTES: RouteDefinition[] = [
     label: 'Tableau de bord',
     icon: 'LayoutDashboard',
     badge: 'dashboard-stats',
+  },
+
+  // ----------------------------------------------------------
+  // ACCUEIL — poste de l'agent d'accueil : tickets de rendez-vous,
+  // registre des demandes sur place (walkin:read, attribuée à l'accueil
+  // et à l'administrateur).
+  // ----------------------------------------------------------
+  {
+    path: '/accueil',
+    component: AccueilPage,
+    label: 'Accueil',
+    icon: 'ConciergeBell',
+    permission: PermissionCode.WALKIN_READ,
+  },
+
+  // ----------------------------------------------------------
+  // ESPACE CULTUREL — Conseiller Culturel (et administrateur) :
+  // échanges à visage découvert avec la communauté.
+  // ----------------------------------------------------------
+  {
+    path: '/culture',
+    component: CulturePage,
+    label: 'Espace culturel',
+    icon: 'Palette',
+    permission: PermissionCode.CULTURE_MANAGE,
+    children: [
+      {
+        path: '/culture',
+        component: CulturePage,
+        label: 'Tableau de bord',
+      },
+      {
+        path: '/culture/echanges',
+        component: CultureThreadsPage,
+        label: 'Échanges',
+      },
+      {
+        path: '/culture/echanges/:id',
+        component: CultureThreadPage,
+        label: 'Échange',
+        hidden: true,
+        isDetail: true,
+      },
+    ],
   },
 
   // ----------------------------------------------------------
@@ -141,13 +200,6 @@ export const PROTECTED_ROUTES: RouteDefinition[] = [
         label: 'Rendez-Vous',
       },
       {
-        path: '/rendez-vous/urgence',
-        component: UrgencePage,
-        label: 'Urgences',
-        permission: PermissionCode.RDV_CREATE_URGENCE,
-        badge: 'urgences-count',
-      },
-      {
         path: '/rendez-vous/disponibilites',
         component: DisponibilitesPage,
         label: 'Disponibilités',
@@ -165,25 +217,32 @@ export const PROTECTED_ROUTES: RouteDefinition[] = [
     component: EtudiantsListPage,
     label: 'Étudiants',
     icon: 'Users',
+    permission: PermissionCode.ETUDIANT_READ,
+    minRoleLevel: 5,
     children: [
       {
         path: '/etudiants',
         component: EtudiantsListPage,
         label: 'Liste des étudiants',
+        permission: PermissionCode.ETUDIANT_READ,
+        minRoleLevel: 5,
       },
       {
         path: '/etudiants/:id',
-        component: EtudiantsListPage,
+        component: EtudiantDetailPage,
         label: 'Détail étudiant',
+        permission: PermissionCode.ETUDIANT_READ,
+        minRoleLevel: 5,
         hidden: true,
         isDetail: true,
       },
       {
         path: '/etudiants/validation',
         component: ValidationPage,
-        label: 'Validation documents',
-        permission: PermissionCode.DOCUMENT_VALIDATE,
-        badge: 'docs-a-valider',
+        label: 'Validation',
+        permission: PermissionCode.ETUDIANT_VALIDATE,
+        minRoleLevel: 3,
+        badge: 'etudiants-en-attente',
       },
     ],
   },
@@ -264,9 +323,8 @@ export const PROTECTED_ROUTES: RouteDefinition[] = [
     children: [
       {
         path: '/communication',
-        component: CampagnesPage,
-        label: 'Messagerie',
-        
+        component: NotificationCenterPage,
+        label: 'Notifications',
       },
       {
         path: '/communication/campagnes',
@@ -293,6 +351,37 @@ export const PROTECTED_ROUTES: RouteDefinition[] = [
         component: EditCampagnePage,
         label: 'Modifier la campagne',
         permission: PermissionCode.COMM_CREATE,
+        hidden: true,
+        isDetail: true,
+      },
+    ],
+  },
+
+  // ----------------------------------------------------------
+  // MESSAGERIE INTERNE — entrée de premier niveau distincte de
+  // Communication : ouverte à TOUT le personnel (message:read, niveau 6),
+  // contrairement à Communication (comm:read, niveau 3+) — imbriquer
+  // Messagerie sous Communication l'aurait masquée pour un agent/réceptionniste
+  // sans comm:read (canAccessRoute/le filtre du sidebar ne descend pas dans
+  // les enfants d'un parent déjà refusé).
+  // ----------------------------------------------------------
+  {
+    path: '/communication/messages',
+    component: MessagesPage,
+    label: 'Messagerie',
+    icon: 'MessageSquare',
+    permission: PermissionCode.MESSAGE_READ,
+    minRoleLevel: 6,
+    children: [
+      {
+        path: '/communication/messages',
+        component: MessagesPage,
+        label: 'Conversations',
+      },
+      {
+        path: '/communication/messages/:id',
+        component: ThreadDetailPage,
+        label: 'Conversation',
         hidden: true,
         isDetail: true,
       },
@@ -372,10 +461,42 @@ export const PROTECTED_ROUTES: RouteDefinition[] = [
         isDetail: true
       },
       {
+        path: '/agents/demandes',
+        component: AgentRequestsPage,
+        label: 'Demandes des agents',
+        requiredRole: RoleName.ADMIN,
+      },
+      {
         path: '/agents/roles',
         component: RolesPermissionsPage,
         label: 'Rôles & Permissions',
-        requiredRole: RoleName.AMBASSADOR,
+        requiredRole: RoleName.ADMIN,
+      },
+    ],
+  },
+
+  // ----------------------------------------------------------
+  // TICKETS DE SUPPORT (administrateur)
+  // ----------------------------------------------------------
+  {
+    path: '/support-tickets',
+    component: SupportTicketsPage,
+    label: 'Tickets support',
+    icon: 'LifeBuoy',
+    permission: PermissionCode.USER_ADMIN,
+    requiredRole: RoleName.ADMIN,
+    children: [
+      {
+        path: '/support-tickets',
+        component: SupportTicketsPage,
+        label: 'Tickets de support',
+      },
+      {
+        path: '/support-tickets/:id',
+        component: SupportTicketDetailPage,
+        label: 'Détail du ticket',
+        hidden: true,
+        isDetail: true,
       },
     ],
   },
@@ -389,6 +510,7 @@ export const PROTECTED_ROUTES: RouteDefinition[] = [
     label: 'Journal d\'audit',
     icon: 'Activity',
     permission: PermissionCode.AUDIT_READ,
+    minRoleLevel: 2, // ADMIN + Ambassadeur uniquement
   },
 
   // ----------------------------------------------------------
@@ -501,7 +623,7 @@ export function canAccessRoute(
   roleName: RoleName,
   roleLevel: number
 ): boolean {
-  if (roleName === RoleName.AMBASSADOR) return true;
+  if (roleName === RoleName.ADMIN) return true;
   if (route.permission && !hasPermission(route.permission)) return false;
   if (route.requiredRole && roleName !== route.requiredRole) return false;
   if (route.minRoleLevel && roleLevel > route.minRoleLevel) return false;

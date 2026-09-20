@@ -11,8 +11,10 @@ export enum AuditSeverity {
 export interface AuditLog {
   id: string;
   at: string;
-  actorUserId: string;
+  actorUserId: string | null;
+  actorEmail: string | null;
   actorInue: string | null;
+  actorName: string | null;
   actorRole: string;
   action: string;
   entityType: string;
@@ -24,4 +26,12 @@ export interface AuditLog {
   ua: string;
   sessionId: string | null;
   severity: AuditSeverity;
+}
+
+/** Pagination renvoyée par GET /audit/logs (meta). */
+export interface AuditPageMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }

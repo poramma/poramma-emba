@@ -74,6 +74,24 @@ export function formatDateShort(date: Date | string): string {
 }
 
 /**
+ * Formate une date au format local compact (ex: "17 sept. 2026")
+ * À utiliser quand l'espace le permet, en alternative à formatDateShort.
+ */
+export function formatDateMedium(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+
+  if (isNaN(d.getTime())) {
+    return '--';
+  }
+
+  return d.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+/**
  * Calcule le temps écoulé depuis une date (time ago)
  */
 export function timeAgo(date: string | Date): string {
@@ -108,9 +126,10 @@ export function timeAgo(date: string | Date): string {
  * Accepte soit un objet Date, soit une chaîne "HH:mm"
  */
 export function formatTime(date: Date | string): string {
-  // Si c'est déjà une chaîne "HH:mm", la retourner directement
-  if (typeof date === 'string' && /^\d{2}:\d{2}$/.test(date)) {
-    return date;
+  // Si c'est déjà une chaîne "HH:mm" ou "HH:mm:ss" (colonnes `time` de
+  // Postgres, ex: "12:00:00"), extraire directement "HH:mm".
+  if (typeof date === 'string' && /^\d{2}:\d{2}(:\d{2})?$/.test(date)) {
+    return date.slice(0, 5);
   }
   
   // Si c'est une chaîne ISO, la convertir en Date

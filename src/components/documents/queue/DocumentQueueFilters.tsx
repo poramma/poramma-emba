@@ -26,6 +26,9 @@ interface DocumentQueueFiltersProps {
 const STATUS_OPTIONS = [
   { value: DocStatus.UPLOADED, label: 'Téléversé' },
   { value: DocStatus.IN_REVIEW, label: 'En vérification' },
+  { value: DocStatus.ACCEPTED, label: 'Validé' },
+  { value: DocStatus.REJECTED, label: 'Rejeté' },
+  { value: DocStatus.EXPIRED, label: 'Expiré' },
 ];
 
 const TYPE_OPTIONS = Object.values(DocumentType).map((type) => ({

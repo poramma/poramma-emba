@@ -2,6 +2,8 @@
 
 import type React from "react";
 import type { FC, ReactNode } from "react";
+import { Calendar } from "lucide-react";
+import { DateField } from "./DateField";
 
 interface InputProps {
   type?: "text" | "number" | "email" | "password" | "date" | "time" | "datetime-local" | "tel" | "url";
@@ -68,9 +70,12 @@ export const Input: FC<InputProps> = ({
   autoComplete,
   readOnly = false,
 }) => {
+  // Un champ de date/heure est un vrai sélecteur (calendrier), jamais une saisie brute.
+  const isDate = type === "date" || type === "datetime-local";
+
   // Calcul du padding en fonction des icônes
   const paddingLeft = startIcon ? "pl-10" : "pl-4";
-  const paddingRight = endIcon ? "pr-10" : "pr-4";
+  const paddingRight = endIcon || isDate ? "pr-10" : "pr-4";
 
   // Classes de base
   const baseClasses = `
@@ -175,6 +180,24 @@ export const Input: FC<InputProps> = ({
             autoFocus={autoFocus}
             className={inputClasses}
           />
+        ) : isDate ? (
+          <DateField
+            mode={type === "date" ? "date" : "datetime"}
+            id={id}
+            name={name}
+            value={value}
+            onChange={onChange}
+            onFocus={onFocus}
+            onBlur={onBlur}
+            min={min}
+            max={max}
+            placeholder={placeholder ?? (type === "date" ? "jj/mm/aaaa" : "jj/mm/aaaa hh:mm")}
+            disabled={disabled}
+            readOnly={readOnly}
+            required={required}
+            autoFocus={autoFocus}
+            className={inputClasses}
+          />
         ) : (
           <input
             type={type}
@@ -199,6 +222,13 @@ export const Input: FC<InputProps> = ({
             autoComplete={autoComplete}
             className={inputClasses}
           />
+        )}
+
+        {/* Icône calendrier des champs de date */}
+        {isDate && !endIcon && (
+          <div className={`${iconClasses} right-0 pr-3`}>
+            <Calendar className="w-4 h-4" />
+          </div>
         )}
 
         {/* Icône de fin */}

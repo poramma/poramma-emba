@@ -71,7 +71,7 @@ import {
 import {
     Campagne,
     Message,
-    Notification,
+    Notif,
     CampagneFilters,
     CampagneStats,
     CampagneDelivery,
@@ -89,12 +89,12 @@ import {
     Etudiant,
     EtudiantProfile,
     Bourse,
-    ValidationStatus,
-    EtudiantDocument,
+    EtudiantStatus,
     DocumentType,
     DocStatus,
     EtudiantFilters,
-    ValidationPayload
+    InueAssignment,
+    EtudiantsEstimate,
 } from './etudiant';
 
 // AUDIT
@@ -157,7 +157,7 @@ export {
     NotifStatus,
 
     // Etudiant
-    ValidationStatus,
+    EtudiantStatus,
 
     //Document
     DocumentType,
@@ -211,7 +211,7 @@ export type {
     // Communication
     Campagne,
     Message,
-    Notification,
+    Notif,
     CampagneFilters,
     CampagneStats,
     CampagneDelivery,
@@ -222,9 +222,9 @@ export type {
     Etudiant,
     EtudiantProfile,
     Bourse,
-    EtudiantDocument,
     EtudiantFilters,
-    ValidationPayload,
+    InueAssignment,
+    EtudiantsEstimate,
     // Audit
     AuditLog,
     // Document

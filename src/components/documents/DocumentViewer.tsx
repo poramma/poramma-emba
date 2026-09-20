@@ -10,10 +10,13 @@ import {
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { DocumentStatusBadge } from './DocumentStatusBadge';
 import { useDocuments } from '../../hooks/useDocuments';
 import { useAuth } from '../../hooks/useAuth';
+import { api } from '../../lib/api';
 import { DocumentGED } from '../../types/document';
 import { formatDateShort, formatFileSize } from '../../lib/date';
+import { documentTypeLabels } from '../../config/document-labels';
 
 interface DocumentViewerProps {
   doc: DocumentGED;
@@ -61,40 +64,50 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   const isExcel = doc.file?.mimeType?.includes('sheet') || 
                    doc.file?.mimeType?.includes('excel');
 
-  // Générer l'URL de prévisualisation
+  // Génère une URL d'aperçu locale (blob:) à partir du fichier réel — MinIO
+  // n'est pas joignable depuis le navigateur, donc `doc.file.path` (la clé
+  // objet interne, ex: "documents/file-xxx/passeport.pdf") ne peut PAS
+  // servir de src d'iframe/img directement, il faut passer par notre API
+  // authentifiée qui proxy le fichier (même pattern que downloadDocument).
   useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+
     const loadPreview = async () => {
       setIsLoading(true);
       setError(null);
-      
-      try {
-        // TODO: Appel API pour obtenir l'URL présignée
-        // const { data } = await api.get(`/documents/${document.id}/preview`);
-        // setPreviewUrl(data.url);
-        
-        // Mock: Utiliser le chemin du fichier
-        if (doc.file?.path) {
-          setPreviewUrl(doc.file.path);
-        } else {
-          setError('Aucune prévisualisation disponible');
-        }
-        
-        // Simuler le chargement
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        if (isPDF) {
-          setTotalPages(3); // Mock: À remplacer par le nombre réel de pages
-        }
-        
-      } catch (err) {
-        setError('Impossible de charger le document');
-      } finally {
+      setPreviewUrl(null);
+
+      if (!doc.file) {
+        setError('Aucune prévisualisation disponible');
         setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await api.get(`/documents/${doc.id}/download`, { responseType: 'blob' });
+        if (cancelled) return;
+        const blob = new Blob([response.data], { type: doc.file.mimeType });
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewUrl(objectUrl);
+        // Pas de comptage réel de pages (nécessiterait pdf.js) — on affiche
+        // un document PDF comme une seule page plutôt que d'inventer un
+        // nombre de pages fictif.
+        setTotalPages(1);
+      } catch (err) {
+        if (!cancelled) setError('Impossible de charger le document');
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     loadPreview();
-  }, [doc.id, doc.file?.path, isPDF]);
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [doc.id, doc.file?.path]);
 
   // Gestion du plein écran
   useEffect(() => {
@@ -227,7 +240,13 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
     // Word, Excel, autres
     if (isWord || isExcel) {
-      // Utiliser l'API Google Docs Viewer si disponible
+      // NOTE: Google Docs Viewer a besoin d'une URL PUBLIQUE à récupérer
+      // lui-même — un blob: (généré localement depuis le fichier proxié par
+      // notre API, voir l'effet ci-dessus) ne fonctionnera pas ici. Cette
+      // branche reste inatteignable pour les documents étudiants (PDF/JPG/
+      // PNG uniquement) ; les documents internes (qui autorisent Word/
+      // Excel) n'ont pas encore de visualiseur dédié. À revoir si/quand un
+      // visualiseur de documents internes est construit.
       const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(previewUrl)}&embedded=true`;
       
       return (
@@ -485,7 +504,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
             <div>
               <p className="text-gray-400">Type</p>
               <p className="font-medium text-gray-700 dark:text-gray-300">
-                {doc.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                {documentTypeLabels[doc.type]}
               </p>
             </div>
             <div>
@@ -496,9 +515,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
             </div>
             <div>
               <p className="text-gray-400">Statut</p>
-              <p className="font-medium text-gray-700 dark:text-gray-300">
-                {doc.status}
-              </p>
+              <DocumentStatusBadge status={doc.status} size="sm" />
             </div>
           </div>
         </div>

@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Users, Lock, Unlock, Building, Upload, 
-  Plus, Search, Filter, Eye, Download,
-  ArrowLeft, FileText, AlertCircle
+import {
+  Users, Lock, Upload, Download,
+  ArrowLeft
 } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -19,15 +18,17 @@ import { usePermission } from '../../hooks/usePermission';
 import { useToast } from '../../hooks/useToast';
 import { PermissionCode } from '../../types/auth';
 import { InternalDocument, ConfidentialityLevel } from '../../types/document';
+import { confidentialityLabels, departmentLabels } from '../../config/document-labels';
 
 export const InternalDocumentsPage: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { 
-    internalDocuments, 
-    fetchInternalDocuments, 
+  const {
+    internalDocuments,
+    fetchInternalDocuments,
     isLoading,
-    downloadDocument,
+    downloadInternalDocument,
+    shareInternalDocument,
   } = useDocuments();
   const { can } = usePermission();
 
@@ -50,19 +51,17 @@ export const InternalDocumentsPage: React.FC = () => {
   };
 
   const handleDownload = async (doc: InternalDocument) => {
-    if (doc.fileId) {
-      await downloadDocument(doc.fileId);
-      toast({
-        title: 'Téléchargement',
-        description: `Téléchargement de ${doc.title} en cours...`,
-        variant: 'info',
-      });
-    }
+    await downloadInternalDocument(doc);
+    toast({
+      title: 'Téléchargement',
+      description: `Téléchargement de ${doc.title} en cours...`,
+      variant: 'info',
+    });
   };
 
   const handleUploadSuccess = () => {
     setShowUpload(false);
-    //fetchInternalDocuments();
+    fetchInternalDocuments();
     toast({
       title: 'Document interne téléversé',
       description: 'Le document a été ajouté avec succès.',
@@ -71,8 +70,8 @@ export const InternalDocumentsPage: React.FC = () => {
   };
 
   const handleShare = async (targetAgentIds: string[], targetRoleIds: string[]) => {
-    // TODO: Appel API pour partager le document
-    console.log('Partage du document:', selectedDocument?.id, { targetAgentIds, targetRoleIds });
+    if (!selectedDocument) return;
+    await shareInternalDocument(selectedDocument.id, targetAgentIds, targetRoleIds);
   };
 
   const canShare = can(PermissionCode.DOCUMENT_SHARE) || can(PermissionCode.SERVICE_ADMIN);
@@ -145,11 +144,11 @@ export const InternalDocumentsPage: React.FC = () => {
                       v{selectedDocument.version}
                     </Badge>
                     <Badge color="gray" variant="light">
-                      {selectedDocument.department}
+                      {departmentLabels[selectedDocument.department] ?? selectedDocument.department}
                     </Badge>
                     <Badge color="warning" variant="light">
                       <Lock className="w-3 h-3 mr-1" />
-                      {selectedDocument.confidentiality}
+                      {confidentialityLabels[selectedDocument.confidentiality]}
                     </Badge>
                   </div>
                   <div className="flex flex-wrap gap-1 mt-2">

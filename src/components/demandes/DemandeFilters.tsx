@@ -10,6 +10,7 @@ import { Input } from '../ui/input';
 import { Select } from '../ui/select';
 import { Button } from '../ui/button';
 import { Search, Filter, X, RotateCcw } from 'lucide-react';
+import { useDebouncedSearch } from '../../hooks/useDebouncedSearch';
 
 const STATUS_OPTIONS: { value: AppStatus | ''; label: string }[] = [
   { value: '', label: 'Tous les statuts' },
@@ -41,9 +42,16 @@ export const DemandeFilters: React.FC<DemandeFiltersProps> = ({ onFilterChange }
   const [searchQuery, setSearchQuery] = useState(filters.search || '');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // Recherche en temps réel : appliquée peu après la dernière frappe, sans bouton à cliquer.
+  useDebouncedSearch(searchQuery, (text) => {
+    filterBySearch(text);
+    onFilterChange?.();
+  });
+
+  // « Entrée » applique immédiatement (sans attendre le délai).
   const handleSearch = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    filterBySearch(searchQuery);
+    filterBySearch(searchQuery.trim());
     onFilterChange?.();
   }, [searchQuery, filterBySearch, onFilterChange]);
 
@@ -90,10 +98,6 @@ export const DemandeFilters: React.FC<DemandeFiltersProps> = ({ onFilterChange }
             className="pl-10"
           />
         </div>
-        <Button type="submit" variant="secondary">
-          <Search className="h-4 w-4 mr-1" />
-          Rechercher
-        </Button>
         <Button
           type="button"
           variant="outline"

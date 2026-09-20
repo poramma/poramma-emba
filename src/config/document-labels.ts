@@ -8,7 +8,8 @@
  * (DocumentTypeChart, DocumentList, DocumentQueueTable, StudentDocumentGrid...).
  */
 
-import { DocumentType } from '../types';
+import { DocumentType, ConfidentialityLevel } from '../types';
+import { AgentDepartment } from '../types/auth';
 
 export const documentTypeLabels: Record<DocumentType, string> = {
   [DocumentType.ID_CARD]: "Carte d'identité",
@@ -22,4 +23,26 @@ export const documentTypeLabels: Record<DocumentType, string> = {
   [DocumentType.NATIONALITY_CERT]: 'Certificat de nationalité',
   [DocumentType.SCHOLARSHIP_PROOF]: 'Preuve de bourse',
   [DocumentType.OTHER]: 'Autre',
+};
+
+export const confidentialityLabels: Record<ConfidentialityLevel, string> = {
+  [ConfidentialityLevel.PUBLIC]: 'Public',
+  [ConfidentialityLevel.INTERNAL]: 'Interne',
+  [ConfidentialityLevel.RESTRICTED]: 'Restreint',
+  [ConfidentialityLevel.CONFIDENTIAL]: 'Confidentiel',
+};
+
+export const departmentLabels: Record<AgentDepartment, string> = {
+  [AgentDepartment.CONSULAR]: 'Consulaire',
+  [AgentDepartment.ADMINISTRATIVE]: 'Administratif',
+  [AgentDepartment.FINANCIAL]: 'Financier',
+  [AgentDepartment.COMMUNICATION]: 'Communication',
+  [AgentDepartment.SECURITY]: 'Sécurité',
+  [AgentDepartment.STUDIES]: 'Études',
+};
+
+/** Statut de vérification d'un compte étudiant (données mock — voir StudentDocumentsPage). */
+export const studentVerificationLabels: Record<string, string> = {
+  VERIFIED: 'Vérifié',
+  PENDING: 'En attente',
 };

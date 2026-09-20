@@ -37,6 +37,24 @@ export interface Demande {
   completedAt: string | null; // Date de clôture
   createdAt: string;
   updatedAt: string;
+  /** Présent uniquement en statut ADDITIONAL_INFO_REQUIRED : où en est le complément demandé. */
+  complement?: DemandeComplement | null;
+}
+
+/**
+ * ÉTAT D'UNE DEMANDE DE COMPLÉMENT (calculé par le backend).
+ * « Complément requis » n'est PAS un état final : l'agent reprend le traitement
+ * quand il le juge utile ; `responded` indique si l'usager a répondu depuis
+ * (message public ou nouveau document) — sinon un avertissement est affiché.
+ */
+export interface DemandeComplement {
+  requestedAt: string;
+  requestMessage: string | null;
+  requestedBy: string | null;
+  responded: boolean;
+  respondedAt: string | null;
+  newMessages: number;
+  newDocuments: number;
 }
 
 /**
@@ -120,6 +138,7 @@ export interface DemandeDocument {
 export interface DemandeHistory {
   id: string;
   demandeId: string;
+  action?: 'STATUS_CHANGE' | 'ASSIGNMENT'; // absent = STATUS_CHANGE (anciennes entrées)
   fromStatus: AppStatus;
   toStatus: AppStatus;
   actorUserId: string;

@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  FolderOpen, FileText, Clock, CheckCircle, XCircle,
-  AlertTriangle, Upload, Search, Filter, Plus,
-  BarChart3, Activity, Users
+import {
+  FolderOpen, FileText, Clock, Upload,
+  BarChart3, Users
 } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -15,24 +14,18 @@ import { PermissionGuard } from '../../components/auth/PermissionGuard';
 import { DocumentDashboardStats } from '../../components/documents/dashboard/DocumentDashboardStats';
 import { DocumentTypeChart } from '../../components/documents/dashboard/DocumentTypeChart';
 import { DocumentActivityFeed } from '../../components/documents/dashboard/DocumentActivityFeed';
-import { DocumentUpload } from '../../components/documents/DocumentUpload';
 import { DocumentList } from '../../components/documents/DocumentList';
 import { useDocuments } from '../../hooks/useDocuments';
 import { usePermission } from '../../hooks/usePermission';
-import { useAuth } from '../../hooks/useAuth';
-import { useToast } from '../../hooks/useToast';
 import { PermissionCode } from '../../types/auth';
-import { DocStatus } from '../../types/etudiant';
 
-type TabType = 'overview' | 'recent' | 'upload';
+type TabType = 'overview' | 'recent';
 
 export const DocumentsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const { 
-    documents, 
-    stats, 
+  const {
+    documents,
+    stats,
     auditLogs,
     isLoading,
     fetchStats,
@@ -45,14 +38,14 @@ export const DocumentsPage: React.FC = () => {
   const { can } = usePermission();
 
   const [activeTab, setActiveTab] = useState<TabType>('overview');
-  const [showUpload, setShowUpload] = useState(false);
 
   const canUpload = can(PermissionCode.DOCUMENT_UPLOAD);
 
-  // Chargement initial
+  // Chargement initial — pas de filtre de statut par défaut (voir la file
+  // de vérification pour la même correction).
   useEffect(() => {
     fetchStats();
-    fetchDocuments({ status: DocStatus.IN_REVIEW });
+    fetchDocuments();
     fetchAuditLogs();
     fetchCategories();
     fetchGeneratedDocuments();
@@ -60,17 +53,6 @@ export const DocumentsPage: React.FC = () => {
 
   const handleDocumentClick = (doc: any) => {
     navigate(`/documents/${doc.id}`);
-  };
-
-  const handleUploadSuccess = () => {
-    setShowUpload(false);
-    fetchDocuments();
-    fetchStats();
-    toast({
-      title: 'Document téléversé',
-      description: 'Le document a été ajouté avec succès.',
-      variant: 'success',
-    });
   };
 
   const handleDownload = async (doc: any) => {
@@ -119,9 +101,9 @@ export const DocumentsPage: React.FC = () => {
                 Archives
               </Button>
               {canUpload && (
-                <Button 
-                  variant="primary" 
-                  onClick={() => setShowUpload(!showUpload)}
+                <Button
+                  variant="primary"
+                  onClick={() => navigate('/documents/students')}
                 >
                   <Upload className="w-4 h-4 mr-2" />
                   Téléverser
@@ -129,22 +111,6 @@ export const DocumentsPage: React.FC = () => {
               )}
             </div>
           </div>
-
-          {/* Upload panel */}
-          {showUpload && (
-            <DocumentUpload
-              ownerUserId={user?.id || ''}
-              onUploadSuccess={handleUploadSuccess}
-              onUploadError={(error) => {
-                toast({
-                  title: 'Erreur',
-                  description: error,
-                  variant: 'error',
-                });
-              }}
-              onClose={() => setShowUpload(false)}
-            />
-          )}
 
           {/* Statistiques */}
           <DocumentDashboardStats 
@@ -159,7 +125,6 @@ export const DocumentsPage: React.FC = () => {
               tabs={[
                 { id: 'overview', label: 'Vue d\'ensemble', icon: <BarChart3 /> },
                 { id: 'recent', label: 'Documents récents', icon: <FileText /> },
-                { id: 'upload', label: 'Téléverser', icon: <Upload /> },
               ]}
               activeTab={activeTab}
               onTabChange={(id) => setActiveTab(id as TabType)}
@@ -256,20 +221,6 @@ export const DocumentsPage: React.FC = () => {
                 emptyMessage="Aucun document récent"
               />
             </div>
-          )}
-
-          {activeTab === 'upload' && canUpload && (
-            <DocumentUpload
-              ownerUserId={user?.id || ''}
-              onUploadSuccess={handleUploadSuccess}
-              onUploadError={(error) => {
-                toast({
-                  title: 'Erreur',
-                  description: error,
-                  variant: 'error',
-                });
-              }}
-            />
           )}
         </div>
       </div>

@@ -28,6 +28,10 @@ import {
   AlertTriangle,
   ShieldCheck,
   Clock,
+  MessageSquare,
+  LifeBuoy,
+  ConciergeBell,
+  Palette,
 } from "lucide-react";
 
 // ============================================================
@@ -48,6 +52,10 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   AlertTriangle,
   ShieldCheck,
   Clock,
+  MessageSquare,
+  LifeBuoy,
+  ConciergeBell,
+  Palette,
 };
 
 // ============================================================
@@ -221,7 +229,6 @@ const AppSidebar: React.FC = () => {
     can,
     currentRole,
     currentRoleLevel,
-    isAmbassador,
   } = usePermission();
 
   // 🔒 Filtrer les routes visibles (exclure hidden) ET appliquer RBAC
@@ -368,6 +375,7 @@ const AppSidebar: React.FC = () => {
                  currentRole?.name === RoleName.SENIOR_AGENT ? 'Agent Senior' :
                  currentRole?.name === RoleName.AGENT ? 'Agent Consulaire' :
                  currentRole?.name === RoleName.RECEPTIONIST ? 'Accueil' :
+                 currentRole?.name === RoleName.CULTURAL_ADVISOR ? 'Conseiller Culturel' :
                  'Auditeur'}
               </p>
             </div>

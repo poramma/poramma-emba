@@ -12,6 +12,12 @@ import { Pagination } from '../ui/pagination';
 import { DocumentStatusBadge } from './DocumentStatusBadge';
 import { DocumentGED } from '../../types/document';
 import { formatDateShort, formatFileSize } from '../../lib/date';
+import { documentTypeLabels } from '../../config/document-labels';
+
+function ownerLabel(doc: DocumentGED): string {
+  if (doc.owner?.profile) return `${doc.owner.profile.firstName} ${doc.owner.profile.lastName}`;
+  return doc.ownerUserId;
+}
 
 interface DocumentListProps {
   documents: DocumentGED[];
@@ -175,12 +181,12 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                 </TableCell>
                 <TableCell>
                   <Badge color="gray" variant="light" size="xs">
-                    {doc.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                    {documentTypeLabels[doc.type]}
                   </Badge>
                 </TableCell>
                 {showOwnerColumn && (
                   <TableCell className="text-sm text-gray-600 dark:text-gray-300">
-                    {doc.ownerUserId}
+                    {ownerLabel(doc)}
                   </TableCell>
                 )}
                 <TableCell>

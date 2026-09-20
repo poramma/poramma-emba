@@ -9,11 +9,11 @@ import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
 import { Modal } from '../../ui/modal';
 import { InternalDocument, ConfidentialityLevel } from '../../../types/document';
-import { RoleName, AgentDepartment } from '../../../types/auth';
+import { RoleName } from '../../../types/auth';
 import { useRoles } from '../../../hooks/useRoles';
 import { useAgents } from '../../../hooks/useAgents';
-import { usePermission } from '../../../hooks/usePermission';
 import { useToast } from '../../../hooks/useToast';
+import { confidentialityLabels } from '../../../config/document-labels';
 
 interface InternalDocumentShareModalProps {
   isOpen: boolean;
@@ -31,7 +31,6 @@ export const InternalDocumentShareModal: React.FC<InternalDocumentShareModalProp
   const { toast } = useToast();
   const { roles, fetchRoles } = useRoles();
   const { agents, fetchAgents } = useAgents();
-  const { canAccess } = usePermission();
 
   const [activeTab, setActiveTab] = useState<'roles' | 'agents'>('roles');
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
@@ -40,13 +39,17 @@ export const InternalDocumentShareModal: React.FC<InternalDocumentShareModalProp
   const [isLoading, setIsLoading] = useState(false);
 
   
-  // Charger les rôles et agents quand le modal s'ouvre
+  // Charger les rôles et agents quand le modal s'ouvre, et pré-cocher les
+  // destinataires déjà partagés — sinon soumettre écraserait le partage
+  // existant avec une sélection vide.
   useEffect(() => {
     if (isOpen) {
       fetchRoles();
       fetchAgents();
+      setSelectedRoleIds(document.targetRoleIds ?? []);
+      setSelectedAgentIds(document.targetAgentIds ?? []);
     }
-  }, [isOpen, fetchRoles, fetchAgents]);
+  }, [isOpen, fetchRoles, fetchAgents, document.id]);
 
   // Filtrer les agents accessibles
   const accessibleAgents = agents.filter(agent => {
@@ -140,7 +143,7 @@ export const InternalDocumentShareModal: React.FC<InternalDocumentShareModalProp
           <p className="font-medium text-gray-900 dark:text-white">{document.title}</p>
           <p className="text-sm text-gray-500">
             Confidentialité: <Badge color="warning" variant="light">
-              {document.confidentiality}
+              {confidentialityLabels[document.confidentiality]}
             </Badge>
           </p>
         </div>

@@ -2,7 +2,7 @@
 // src/hooks/useServices.ts
 // ============================================================
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useServiceStore } from '../store/serviceStore';
 import {
   Service,
@@ -169,6 +169,15 @@ export const useServices = (): UseServicesReturn => {
     getRequirementsForSubService: storeGetRequirementsForSubService,
     getFilteredSubServices: storeGetFilteredSubServices,
   } = store;
+
+  // Fetch once on first use of the hook — the store starts empty (no more
+  // eager mock data) and nothing else in the app currently triggers this.
+  useEffect(() => {
+    if (services.length === 0) {
+      storeFetchServicesFromApi();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ═══════════════════════════════════════════════════════════
   // COMPUTED

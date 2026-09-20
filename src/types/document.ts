@@ -21,6 +21,25 @@ import { DocumentType, DocStatus } from './etudiant';
 import { AgentDepartment } from './auth';
 
 /**
+ * Résumé minimal d'un utilisateur tel que renvoyé par le backend en relation
+ * chargée (owner/reviewedByUser/createdByUser) — PAS le type `Utilisateur`
+ * complet (pas de roles/permissions ici). Sert uniquement à afficher un nom
+ * lisible à la place d'un uuid brut — voir project memory sur la convention
+ * "jamais un ID brut à l'écran".
+ */
+export interface DocumentUserSummary {
+  id: string;
+  email: string;
+  phone: string | null;
+  status: string;
+  profile: {
+    firstName: string;
+    lastName: string;
+    inue: string | null;
+  } | null;
+}
+
+/**
  * FICHIER STOCKÉ (StoredFile dans le diagramme)
  * Backend: Table `stored_files`
  * Stockage: MinIO/S3 avec chiffrement AES-256
@@ -50,6 +69,7 @@ export interface StoredFile {
 export interface DocumentGED {
   id: string;
   ownerUserId: string;       // Propriétaire (étudiant)
+  owner?: DocumentUserSummary | null; // relation chargée — préférer à ownerUserId pour l'affichage
   type: DocumentType;
   categoryId: string | null; // NOUVEAU - lien vers DocumentCategory
   category?: DocumentCategory | null; // NOUVEAU - relation chargée (optionnelle)
@@ -57,6 +77,7 @@ export interface DocumentGED {
   file: StoredFile;
   status: DocStatus;
   reviewedBy: string | null;
+  reviewedByUser?: DocumentUserSummary | null; // relation chargée
   reviewedAt: string | null;
   reviewNote: string | null;
   expiryDate: string | null; // Date d'expiration (passeport, carte...)
@@ -131,6 +152,7 @@ export interface InternalDocument {
   version: number;
   previousVersionId: string | null;
   createdBy: string;                // agentId
+  createdByUser?: DocumentUserSummary | null; // relation chargée — préférer à createdBy pour l'affichage
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;

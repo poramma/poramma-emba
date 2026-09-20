@@ -8,7 +8,6 @@ import {
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
-import { Select } from '../../ui/select';
 import { TextArea } from '../../ui/textarea';
 import { Badge } from '../../ui/badge';
 import { Modal } from '../../ui/modal';
@@ -19,10 +18,11 @@ import { useDocuments } from '../../../hooks/useDocuments';
 import { usePermission } from '../../../hooks/usePermission';
 import { useToast } from '../../../hooks/useToast';
 import { PermissionCode } from '../../../types/auth';
+import { documentTypeLabels } from '../../../config/document-labels';
 
-const DOCUMENT_TYPES = Object.entries(DocumentType).map(([key, value]) => ({
+const DOCUMENT_TYPES = Object.values(DocumentType).map((value) => ({
   value,
-  label: key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()),
+  label: documentTypeLabels[value],
 }));
 
 interface DocumentCategoryManagerProps {
@@ -36,6 +36,7 @@ export const DocumentCategoryManager: React.FC<DocumentCategoryManagerProps> = (
 }) => {
   const { toast } = useToast();
   const { can } = usePermission();
+  const { createCategory, updateCategory, deleteCategory } = useDocuments();
   const canManage = can(PermissionCode.SERVICE_ADMIN);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -92,24 +93,12 @@ export const DocumentCategoryManager: React.FC<DocumentCategoryManagerProps> = (
 
   const handleDelete = async (category: DocumentCategory) => {
     if (!window.confirm(`Supprimer la catégorie "${category.name}" ?`)) return;
-    
-    // Vérifier si des documents sont rattachés
-    // TODO: Appel API pour vérifier le nombre de documents
-    const docCount = 0; // Mock
-    
-    if (docCount > 0) {
-      toast({
-        title: 'Suppression impossible',
-        description: `${docCount} document(s) sont rattachés à cette catégorie.`,
-        variant: 'error',
-      });
-      return;
-    }
 
     setIsLoading(true);
     try {
-      // TODO: Appel API
-      // await api.delete(`/document-categories/${category.id}`);
+      // Le backend refuse la suppression (contrainte de clé étrangère) si
+      // des documents sont encore rattachés à cette catégorie.
+      await deleteCategory(category.id);
       toast({
         title: 'Catégorie supprimée',
         description: `La catégorie "${category.name}" a été supprimée.`,
@@ -118,8 +107,8 @@ export const DocumentCategoryManager: React.FC<DocumentCategoryManagerProps> = (
       onUpdate?.();
     } catch (error) {
       toast({
-        title: 'Erreur',
-        description: 'Impossible de supprimer la catégorie.',
+        title: 'Suppression impossible',
+        description: 'Des documents sont probablement encore rattachés à cette catégorie.',
         variant: 'error',
       });
     } finally {
@@ -153,12 +142,14 @@ export const DocumentCategoryManager: React.FC<DocumentCategoryManagerProps> = (
         retentionDays: formData.retentionDays || null,
       };
 
-      // TODO: Appel API
-      // if (editingCategory) {
-      //   await api.patch(`/document-categories/${editingCategory.id}`, payload);
-      // } else {
-      //   await api.post('/document-categories', payload);
-      // }
+      if (editingCategory) {
+        // code n'est jamais modifié (désactivé côté formulaire) — inutile
+        // de le renvoyer, PATCH ne touche que les autres champs.
+        const { code, ...updatePayload } = payload;
+        await updateCategory(editingCategory.id, updatePayload);
+      } else {
+        await createCategory(payload);
+      }
 
       toast({
         title: editingCategory ? 'Catégorie mise à jour' : 'Catégorie créée',
@@ -247,7 +238,7 @@ export const DocumentCategoryManager: React.FC<DocumentCategoryManagerProps> = (
                     <div className="flex flex-wrap gap-1">
                       {category.allowedTypes.slice(0, 3).map((type) => (
                         <Badge key={type} color="gray" variant="light" size="xs">
-                          {type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                          {documentTypeLabels[type]}
                         </Badge>
                       ))}
                       {category.allowedTypes.length > 3 && (
@@ -363,16 +354,28 @@ export const DocumentCategoryManager: React.FC<DocumentCategoryManagerProps> = (
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Types de documents autorisés *
             </label>
-            <Select
-              multiple
-              value={formData.allowedTypes}
-              onChange={(value) => {
-                const values = Array.from(value, option => option as DocumentType);
-                setFormData({ ...formData, allowedTypes: values });
-              }}
-              options={DOCUMENT_TYPES}
-              error={!!errors.allowedTypes}
-            />
+            {/* Le composant Select partagé ne supporte pas réellement un
+                mode multiple (onChange renvoie toujours une seule string) —
+                une grille de cases à cocher est le pattern correct ici,
+                pas un <select multiple>. */}
+            <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 p-3 rounded-lg border ${errors.allowedTypes ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'}`}>
+              {DOCUMENT_TYPES.map((type) => (
+                <label key={type.value} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.allowedTypes.includes(type.value as DocumentType)}
+                    onChange={(e) => {
+                      const values = e.target.checked
+                        ? [...formData.allowedTypes, type.value as DocumentType]
+                        : formData.allowedTypes.filter((t) => t !== type.value);
+                      setFormData({ ...formData, allowedTypes: values });
+                    }}
+                    className="rounded text-brand-500"
+                  />
+                  {type.label}
+                </label>
+              ))}
+            </div>
             {errors.allowedTypes && <p className="text-sm text-red-600 mt-1">{errors.allowedTypes}</p>}
           </div>
 

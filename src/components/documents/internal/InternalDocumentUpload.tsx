@@ -14,7 +14,7 @@ import { InternalDocumentUploadPayload, ConfidentialityLevel } from '../../../ty
 import { AgentDepartment } from '../../../types/auth';
 import { useDocuments } from '../../../hooks/useDocuments';
 import { useToast } from '../../../hooks/useToast';
-import { useAuth } from '../../../hooks/useAuth';
+import { confidentialityLabels, departmentLabels } from '../../../config/document-labels';
 
 interface InternalDocumentUploadProps {
   onUploadSuccess?: (doc: any) => void;
@@ -22,16 +22,14 @@ interface InternalDocumentUploadProps {
   onClose?: () => void;
 }
 
-const CONFIDENTIALITY_OPTIONS = [
-  { value: ConfidentialityLevel.PUBLIC, label: 'Public' },
-  { value: ConfidentialityLevel.INTERNAL, label: 'Interne' },
-  { value: ConfidentialityLevel.RESTRICTED, label: 'Restreint' },
-  { value: ConfidentialityLevel.CONFIDENTIAL, label: 'Confidentiel' },
-];
-
-const DEPARTMENT_OPTIONS = Object.entries(AgentDepartment).map(([key, value]) => ({
+const CONFIDENTIALITY_OPTIONS = Object.values(ConfidentialityLevel).map((value) => ({
   value,
-  label: key.charAt(0) + key.slice(1).toLowerCase(),
+  label: confidentialityLabels[value],
+}));
+
+const DEPARTMENT_OPTIONS = Object.values(AgentDepartment).map((value) => ({
+  value,
+  label: departmentLabels[value],
 }));
 
 const ACCEPTED_MIME_TYPES = [
@@ -51,7 +49,6 @@ export const InternalDocumentUpload: React.FC<InternalDocumentUploadProps> = ({
   onUploadError,
   onClose,
 }) => {
-  const { user } = useAuth();
   const { uploadInternalDocument, isLoading, uploadProgress } = useDocuments();
   const { toast } = useToast();
 

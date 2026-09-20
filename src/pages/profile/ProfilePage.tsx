@@ -18,6 +18,9 @@ import { AvailabilitySchedule } from '../../components/profile/AvailabilitySched
 import { SignatureCard } from '../../components/profile/SignatureCard';
 import { PreferencesPanel } from '../../components/profile/PreferencesPanel';
 import { ActivityLogFeed } from '../../components/profile/ActivityLogFeed';
+import { AgentRequestDialog } from '../../components/profile/AgentRequestDialog';
+import { MyAgentRequests } from '../../components/profile/MyAgentRequests';
+import { useAgentRequestsStore, type AgentRequestCategory, type AgentRequestKind } from '../../store/agentRequestsStore';
 import { useAgentProfile } from '../../hooks/useAgentProfile';
 import { useAuth } from '../../hooks/useAuth';
 import { usePermission } from '../../hooks/usePermission';
@@ -55,8 +58,12 @@ export const ProfilePage: React.FC = () => {
     fetchProfile,
     fetchActivities,
     activities,
+    hasMoreActivities,
     isLoadingActivities,
   } = useAgentProfile();
+
+  const [requestDialog, setRequestDialog] = useState<{ kind: AgentRequestKind; category?: AgentRequestCategory } | null>(null);
+  const fetchMyRequests = useAgentRequestsStore((s) => s.fetchMine);
 
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     const tabParam = searchParams.get('tab') as TabType;
@@ -132,14 +139,29 @@ export const ProfilePage: React.FC = () => {
             )}
 
             {activeTab === 'fonction' && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <RoleAndPermissionsCard
-                  roles={profileData?.roles || []}
-                  activeRole={profileData?.activeRole}
-                />
-                <ServiceAssignmentsCard
-                  assignments={profileData?.assignments || []}
-                />
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <RoleAndPermissionsCard
+                    roles={profileData?.roles || []}
+                    activeRole={profileData?.activeRole}
+                    onRequestAccess={() => setRequestDialog({ kind: 'ACCESS_REQUEST', category: 'PERMISSION_CHANGE' })}
+                  />
+                  <ServiceAssignmentsCard
+                    assignments={profileData?.assignments || []}
+                    onRequestAccess={() => setRequestDialog({ kind: 'ACCESS_REQUEST', category: 'SERVICE_ACCESS' })}
+                    onReport={() => setRequestDialog({ kind: 'REPORT', category: 'ASSIGNMENT_ISSUE' })}
+                  />
+                </div>
+                <MyAgentRequests />
+                <div className="text-right">
+                  <button
+                    type="button"
+                    className="text-sm text-gray-500 underline hover:text-gray-700 dark:text-gray-400"
+                    onClick={() => setRequestDialog({ kind: 'REPORT', category: 'OTHER' })}
+                  >
+                    Signaler un autre problème à l'administrateur
+                  </button>
+                </div>
               </div>
             )}
 
@@ -173,11 +195,20 @@ export const ProfilePage: React.FC = () => {
               <ActivityLogFeed
                 activities={activities}
                 isLoading={isLoadingActivities}
+                hasMore={hasMoreActivities}
                 lastLoginAt={profileData?.user?.lastLoginAt || null}
                 onLoadMore={() => fetchActivities(activities?.length || 0)}
               />
             )}
           </div>
+
+          <AgentRequestDialog
+            isOpen={!!requestDialog}
+            onClose={() => setRequestDialog(null)}
+            kind={requestDialog?.kind ?? 'ACCESS_REQUEST'}
+            defaultCategory={requestDialog?.category}
+            onSubmitted={fetchMyRequests}
+          />
 
           {/* Pied de confidentialité */}
           <div className="text-center text-xs text-gray-400 dark:text-gray-500 mt-8">

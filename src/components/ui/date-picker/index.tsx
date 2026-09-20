@@ -1,9 +1,10 @@
 import { FC, useEffect, useRef } from "react";
 import flatpickr from "flatpickr";
+import { French } from "flatpickr/dist/l10n/fr.js";
 import "flatpickr/dist/flatpickr.css";
 
 import { Calendar } from "lucide-react";
-import Label from "../../form/Label";
+import Label from "../label";
 
 interface DatePickerProps {
   label?: string;
@@ -19,6 +20,9 @@ interface DatePickerProps {
 
   className?: string;
 }
+
+const INPUT_CLASSES =
+  "h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring-4 focus:ring-brand-500/20 disabled:bg-gray-100 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder:text-white/30 dark:focus:border-brand-700";
 
 export const DatePicker: FC<DatePickerProps> = ({
   label,
@@ -39,7 +43,12 @@ export const DatePicker: FC<DatePickerProps> = ({
       mode,
       static: true,
       monthSelectorType: "static",
+      locale: { ...French, firstDayOfWeek: 1 },
       dateFormat: "Y-m-d",
+      // Affichage jj/mm/aaaa ; la valeur émise reste au format ISO.
+      altInput: true,
+      altFormat: "d/m/Y",
+      altInputClass: INPUT_CLASSES,
       defaultDate: value,
 
       onChange: (dates, dateStr) => {
@@ -68,33 +77,7 @@ export const DatePicker: FC<DatePickerProps> = ({
           type="text"
           disabled={disabled}
           placeholder={placeholder}
-          className="
-            h-11
-            w-full
-            rounded-lg
-            border
-            border-gray-300
-            bg-transparent
-            px-4
-            py-2.5
-            pr-11
-            text-sm
-            text-gray-800
-            shadow-theme-xs
-            placeholder:text-gray-400
-            focus:border-brand-300
-            focus:outline-none
-            focus:ring-4
-            focus:ring-brand-500/20
-            disabled:bg-gray-100
-            disabled:cursor-not-allowed
-
-            dark:border-gray-700
-            dark:bg-gray-900
-            dark:text-white
-            dark:placeholder:text-white/30
-            dark:focus:border-brand-700
-          "
+          className={INPUT_CLASSES}
         />
 
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">

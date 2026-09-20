@@ -17,6 +17,10 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 import { AlertTriangle, FileText, User, DollarSign, MessageSquare } from 'lucide-react';
+import { formatDateShort, formatDateTime } from '../../lib/date';
+import { CustomPayloadView } from './CustomPayloadView';
+import { WhatsAppContact } from '../common/WhatsAppContact';
+import { demandeMessage } from '../../lib/whatsapp';
 
 const PRIORITY_CONFIG: Record<Priority, { label: string; color: string; icon: React.ElementType }> = {
   [Priority.LOW]: { label: 'Basse', color: 'bg-gray-100 text-gray-600', icon: FileText },
@@ -60,7 +64,7 @@ export const DemandeDetail: React.FC<DemandeDetailProps> = ({ demandeId: propId,
     clearSelectedDemande,
   } = useDemandes();
 
-  const { documents, fetchDocuments } = useDocuments();
+  const { documents, fetchDocumentsByDemande } = useDocuments();
   const { can } = useAuth();
   const [activeTab, setActiveTab] = useState<'details' | 'workflow' | 'documents' | 'comments'>('details');
   const [newComment, setNewComment] = useState('');
@@ -75,22 +79,23 @@ export const DemandeDetail: React.FC<DemandeDetailProps> = ({ demandeId: propId,
     if (demandeId) {
       fetchDemandeById(demandeId);
       fetchComments(demandeId);
-      // TODO: Backend - fetch documents linked to this demande
-      fetchDocuments();
+      // Pièces réellement jointes à ce dossier (pas tous les documents)
+      fetchDocumentsByDemande(demandeId);
     }
     return () => clearSelectedDemande();
-  }, [demandeId, fetchDemandeById, fetchComments, clearSelectedDemande]);
+  }, [demandeId, fetchDemandeById, fetchComments, fetchDocumentsByDemande, clearSelectedDemande]);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
-  }
-
-  if (error || !selectedDemande) {
+  // Écran de chargement / d'erreur SEULEMENT tant qu'aucune demande n'est affichée : pendant une action
+  // (approuver, rejeter…) le dossier reste à l'écran au lieu d'être remplacé par un squelette.
+  if (!selectedDemande) {
+    if (isLoading) {
+      return (
+        <div className="space-y-4">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      );
+    }
     return (
       <div className="text-center py-12">
         <AlertTriangle className="h-12 w-12 mx-auto text-red-400 mb-4" />
@@ -136,8 +141,8 @@ export const DemandeDetail: React.FC<DemandeDetailProps> = ({ demandeId: propId,
               )}
             </div>
             <p className="text-sm text-gray-500">
-              Soumise le {new Date(selectedDemande.submittedAt || selectedDemande.createdAt).toLocaleDateString('fr-FR')}
-              {selectedDemande.deadlineAt && ` • Deadline: ${new Date(selectedDemande.deadlineAt).toLocaleDateString('fr-FR')}`}
+              Soumise le {formatDateShort(selectedDemande.submittedAt || selectedDemande.createdAt)}
+              {selectedDemande.deadlineAt && ` • Deadline: ${formatDateShort(selectedDemande.deadlineAt)}`}
             </p>
           </div>
           
@@ -150,13 +155,56 @@ export const DemandeDetail: React.FC<DemandeDetailProps> = ({ demandeId: propId,
           )}
         </div>
 
+        {/* Suivi du complément demandé (statut « Infos manquantes ») */}
+        {selectedDemande.status === AppStatus.ADDITIONAL_INFO_REQUIRED && selectedDemande.complement && (
+          <div
+            className={`mt-4 rounded-lg border p-4 text-sm ${
+              selectedDemande.complement.responded
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200'
+                : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200'
+            }`}
+          >
+            <p className="font-semibold">
+              {selectedDemande.complement.responded ? "L'usager a répondu à la demande de complément" : "En attente de la réponse de l'usager"}
+            </p>
+            <p className="mt-1">
+              Complément demandé le {formatDateTime(selectedDemande.complement.requestedAt)}
+              {selectedDemande.complement.requestMessage ? ` : « ${selectedDemande.complement.requestMessage} »` : '.'}
+            </p>
+            {selectedDemande.complement.responded ? (
+              <p className="mt-1">
+                Réponse reçue le {formatDateTime(selectedDemande.complement.respondedAt!)} —{' '}
+                {selectedDemande.complement.newMessages} message{selectedDemande.complement.newMessages > 1 ? 's' : ''}, {selectedDemande.complement.newDocuments} document
+                {selectedDemande.complement.newDocuments > 1 ? 's' : ''}. Consultez les onglets « Commentaires » et « Documents », puis reprenez le traitement.
+              </p>
+            ) : (
+              <p className="mt-1">Vous pouvez reprendre le traitement à tout moment ; un avertissement vous sera rappelé tant qu'aucune réponse n'est arrivée.</p>
+            )}
+          </div>
+        )}
+
         {/* Info demandeur */}
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <InfoCard
             icon={User}
             label="Demandeur"
-            value={`${selectedDemande.user.profile?.firstName} ${selectedDemande.user.profile?.lastName}`}
-            subValue={selectedDemande.user.profile?.inue || 'N/A'}
+            value={`${selectedDemande.user.profile?.firstName ?? ''} ${selectedDemande.user.profile?.lastName ?? ''}`.trim() || 'Nom non renseigné'}
+            subValue={selectedDemande.user.profile?.inue ? `INUE : ${selectedDemande.user.profile.inue}` : 'INUE non attribué'}
+            extra={
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {selectedDemande.user.phone && <span className="text-xs text-gray-500">{selectedDemande.user.phone}</span>}
+                <WhatsAppContact
+                  phone={selectedDemande.user.phone}
+                  recipientName={selectedDemande.user.profile?.firstName ?? undefined}
+                  defaultMessage={demandeMessage({
+                    name: selectedDemande.user.profile?.firstName,
+                    dossierNumber: selectedDemande.dossierNumber,
+                    serviceName: selectedDemande.subService.name,
+                    status: selectedDemande.status,
+                  })}
+                />
+              </div>
+            }
           />
           <InfoCard
             icon={FileText}
@@ -209,13 +257,7 @@ export const DemandeDetail: React.FC<DemandeDetailProps> = ({ demandeId: propId,
           {activeTab === 'details' && (
             <div className="space-y-4">
               <h3 className="font-semibold text-gray-900 dark:text-white">Informations complémentaires</h3>
-              {selectedDemande.customPayload ? (
-                <pre className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 text-sm overflow-auto">
-                  {JSON.stringify(selectedDemande.customPayload, null, 2)}
-                </pre>
-              ) : (
-                <p className="text-sm text-gray-400">Aucune donnée supplémentaire</p>
-              )}
+              <CustomPayloadView data={selectedDemande.customPayload} />
               
               <div className="mt-6">
                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Historique</h4>
@@ -257,7 +299,7 @@ export const DemandeDetail: React.FC<DemandeDetailProps> = ({ demandeId: propId,
                         )}
                       </span>
                       <span className="text-xs text-gray-400">
-                        {new Date(comment.createdAt).toLocaleString('fr-FR')}
+                        {formatDateTime(comment.createdAt)}
                       </span>
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">{comment.content}</p>
@@ -311,7 +353,8 @@ const InfoCard: React.FC<{
   label: string;
   value: string;
   subValue?: string;
-}> = ({ icon: Icon, label, value, subValue }) => (
+  extra?: React.ReactNode;
+}> = ({ icon: Icon, label, value, subValue, extra }) => (
   <div className="flex items-start gap-3">
     <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0">
       <Icon className="h-5 w-5 text-gray-500" />
@@ -320,6 +363,7 @@ const InfoCard: React.FC<{
       <p className="text-xs text-gray-500 uppercase tracking-wider">{label}</p>
       <p className="text-sm font-medium text-gray-900 dark:text-white">{value}</p>
       {subValue && <p className="text-xs text-gray-400">{subValue}</p>}
+      {extra}
     </div>
   </div>
 );

@@ -83,3 +83,15 @@ export function Tabs<T extends string>({
     </>
   );
 }
+
+interface TabPanelProps<T extends string> {
+  id: T;
+  label?: string;
+  activeTab: T;
+  children: React.ReactNode;
+}
+
+export function TabPanel<T extends string>({ id, activeTab, children }: TabPanelProps<T>) {
+  if (id !== activeTab) return null;
+  return <div className="mt-4">{children}</div>;
+}

@@ -7,9 +7,10 @@ import {
 } from 'lucide-react';
 import { Card } from '../../ui/card';
 import { Badge } from '../../ui/badge';
+import { DocumentStatusBadge } from '../DocumentStatusBadge';
 import { DocumentGED } from '../../../types/document';
 import { formatDateShort, formatFileSize } from '../../../lib/date';
-import { DocStatus } from '../../../types/etudiant';
+import { documentTypeLabels } from '../../../config/document-labels';
 
 interface DocumentMetadataPanelProps {
   document: DocumentGED;
@@ -58,24 +59,22 @@ export const DocumentMetadataPanel: React.FC<DocumentMetadataPanelProps> = ({
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
                 {document.file?.originalName || 'Document sans nom'}
               </h3>
-              <Badge color={document.status === DocStatus.ACCEPTED ? 'success' : 'gray'} variant="light" size="sm">
-                {document.status}
-              </Badge>
+              <DocumentStatusBadge status={document.status} size="sm" />
             </div>
             <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-500">
               <span className="flex items-center gap-1">
                 <User className="w-4 h-4" />
-                <button 
+                <button
                   className="hover:text-brand-600 hover:underline"
                   onClick={() => onStudentClick?.(document.ownerUserId)}
                 >
-                  {document.ownerUserId}
+                  {document.owner?.profile ? `${document.owner.profile.firstName} ${document.owner.profile.lastName}` : document.ownerUserId}
                 </button>
               </span>
               <span>•</span>
               <span className="flex items-center gap-1">
                 <Tag className="w-4 h-4" />
-                {document.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                {documentTypeLabels[document.type]}
               </span>
               {document.category && (
                 <>
@@ -164,7 +163,11 @@ export const DocumentMetadataPanel: React.FC<DocumentMetadataPanelProps> = ({
               {document.reviewedBy && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Validé par</span>
-                  <span className="font-mono text-gray-700 dark:text-gray-300">{document.reviewedBy}</span>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    {document.reviewedByUser?.profile
+                      ? `${document.reviewedByUser.profile.firstName} ${document.reviewedByUser.profile.lastName}`
+                      : document.reviewedBy}
+                  </span>
                 </div>
               )}
               {document.notes && (

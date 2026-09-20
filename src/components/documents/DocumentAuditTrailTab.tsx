@@ -3,6 +3,7 @@
 import React from 'react';
 import { DocumentAuditLog } from '../../types';
 import { EmptyState } from '../ui/emptyState';
+import { formatDateTime } from '../../lib/date';
 
 const ACTION_LABELS: Record<string, string> = {
   VIEW: 'Consultation',
@@ -56,7 +57,7 @@ export const DocumentAuditTrailTab: React.FC<DocumentAuditTrailTabProps> = ({ lo
                 {log.actorName ?? 'Système / Anonyme'}
               </td>
               <td className="px-4 py-3 text-theme-sm text-gray-500 dark:text-gray-400">
-                {new Date(log.createdAt).toLocaleString('fr-FR')}
+                {formatDateTime(log.createdAt)}
               </td>
               <td className="px-4 py-3 text-theme-sm text-gray-500 dark:text-gray-400">
                 {log.ipAddress ?? '—'}

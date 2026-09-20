@@ -27,7 +27,7 @@ export function DemandeDetailsPage() {
           Retour
         </Button>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          {isTraitement ? 'Traitement de la demande ' + id : 'Détail de la demande ' + id}
+          {isTraitement ? 'Traitement de la demande' : 'Détail de la demande'}
         </h1>
       </div>
 

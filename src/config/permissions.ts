@@ -37,6 +37,11 @@ export const PERMISSIONS: PermissionDefinition[] = [
   { code: PermissionCode.RDV_UPDATE, minRoleLevel: 4, description: 'Modifier un rendez-vous', category: 'Rendez-vous' },
   { code: PermissionCode.RDV_CANCEL, minRoleLevel: 2, description: 'Annuler un rendez-vous', category: 'Rendez-vous' },
   { code: PermissionCode.RDV_PRINT_DAILY, minRoleLevel: 5, description: 'Imprimer le planning journalier', category: 'Rendez-vous' },
+  // Attribuées explicitement (hors hiérarchie) : minRoleLevel 1 = ADMIN seul par la règle de niveau.
+  { code: PermissionCode.RDV_CHECKIN, minRoleLevel: 1, description: 'Valider l\'arrivée d\'un usager (ticket)', category: 'Rendez-vous' },
+  { code: PermissionCode.WALKIN_READ, minRoleLevel: 1, description: 'Lire le registre des demandes sur place', category: 'Accueil' },
+  { code: PermissionCode.WALKIN_MANAGE, minRoleLevel: 1, description: 'Enregistrer et traiter les demandes sur place', category: 'Accueil' },
+  { code: PermissionCode.CULTURE_MANAGE, minRoleLevel: 1, description: 'Gérer l\'espace culturel', category: 'Culture' },
 
   // Disponibilités
   { code: PermissionCode.AVAILABILITY_READ, minRoleLevel: 5, description: 'Lire les disponibilités', category: 'Disponibilités' },
@@ -63,14 +68,24 @@ export const PERMISSIONS: PermissionDefinition[] = [
   { code: PermissionCode.DOCUMENT_READ, minRoleLevel: 5, description: 'Lire les documents', category: 'Documents' },
   { code: PermissionCode.DOCUMENT_VALIDATE, minRoleLevel: 3, description: 'Valider un document', category: 'Documents' },
   { code: PermissionCode.DOCUMENT_UPLOAD, minRoleLevel: 4, description: 'Uploader un document', category: 'Documents' },
-  
+  { code: PermissionCode.DOCUMENT_ARCHIVE, minRoleLevel: 4, description: 'Archiver un document', category: 'Documents' },
+  { code: PermissionCode.DOCUMENT_SHARE, minRoleLevel: 4, description: 'Partager un document interne', category: 'Documents' },
+
+  // Étudiants
+  { code: PermissionCode.ETUDIANT_READ, minRoleLevel: 5, description: 'Lire les dossiers étudiants', category: 'Étudiants' },
+  { code: PermissionCode.ETUDIANT_VALIDATE, minRoleLevel: 3, description: 'Valider, rejeter, suspendre un étudiant ou lui attribuer un INUE', category: 'Étudiants' },
+
   // Communication
   { code: PermissionCode.COMM_READ, minRoleLevel: 3, description: 'Lire les communications', category: 'Communication' },
   { code: PermissionCode.COMM_CREATE, minRoleLevel: 3, description: 'Créer une communication', category: 'Communication' },
   { code: PermissionCode.COMM_SEND, minRoleLevel: 3, description: 'Envoyer une communication', category: 'Communication' },
-  
-  // Audit
-  { code: PermissionCode.AUDIT_READ, minRoleLevel: 6, description: 'Lire le journal d\'audit', category: 'Audit' },
+
+  // Messagerie interne — outil de collaboration de base, ouvert à tout le personnel.
+  { code: PermissionCode.MESSAGE_READ, minRoleLevel: 6, description: 'Lire la messagerie interne', category: 'Messagerie' },
+  { code: PermissionCode.MESSAGE_CREATE, minRoleLevel: 6, description: 'Envoyer un message interne', category: 'Messagerie' },
+
+  // Audit — réservé à l'ADMIN et l'Ambassadeur (même niveau qu'audit:export).
+  { code: PermissionCode.AUDIT_READ, minRoleLevel: 2, description: 'Lire le journal d\'audit', category: 'Audit' },
   { code: PermissionCode.AUDIT_EXPORT, minRoleLevel: 2, description: 'Exporter le journal d\'audit', category: 'Audit' },
   
   // Paiements

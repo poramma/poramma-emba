@@ -63,6 +63,7 @@ interface UseDocumentsReturn {
 
   // Actions CRUD — documents étudiants
   fetchDocuments: (filters?: DocumentFilters) => Promise<void>;
+  fetchDocumentsByDemande: (demandeId: string) => Promise<void>;
   fetchDocumentById: (id: string) => Promise<DocumentGED | null>;
   uploadDocument: (payload: DocumentUploadPayload) => Promise<DocumentGED>;
   validateDocument: (id: string, payload: DocumentValidationPayload) => Promise<void>;
@@ -110,6 +111,9 @@ interface UseDocumentsReturn {
 
   // NOUVEAU — Catégories (page /documents/categories)
   fetchCategories: () => Promise<void>;
+  createCategory: (payload: Omit<DocumentCategory, 'id'>) => Promise<DocumentCategory>;
+  updateCategory: (id: string, payload: Partial<Omit<DocumentCategory, 'id'>>) => Promise<DocumentCategory>;
+  deleteCategory: (id: string) => Promise<void>;
 
   // NOUVEAU — Statistiques dashboard (page /documents)
   fetchStats: () => Promise<void>;
@@ -120,6 +124,8 @@ interface UseDocumentsReturn {
   // NOUVEAU — Documents internes (page /documents/internal)
   fetchInternalDocuments: (filters?: InternalDocumentFilters) => Promise<void>;
   uploadInternalDocument: (payload: InternalDocumentUploadPayload) => Promise<InternalDocument>;
+  shareInternalDocument: (id: string, targetAgentIds: string[], targetRoleIds: string[]) => Promise<void>;
+  downloadInternalDocument: (doc: InternalDocument) => Promise<void>;
   internalDocumentsByDepartment: (department: AgentDepartment) => InternalDocument[];
   internalDocumentsByConfidentiality: (level: ConfidentialityLevel) => InternalDocument[];
 
@@ -152,6 +158,7 @@ export const useDocuments = (): UseDocumentsReturn => {
     error,
     uploadProgress,
     fetchDocuments: storeFetchDocuments,
+    fetchDocumentsByDemande: storeFetchDocumentsByDemande,
     fetchDocumentById: storeFetchDocumentById,
     uploadDocument: storeUploadDocument,
     validateDocument: storeValidateDocument,
@@ -162,10 +169,15 @@ export const useDocuments = (): UseDocumentsReturn => {
     setFilters: storeSetFilters,
     setSelectedDocument: storeSetSelectedDocument,
     fetchCategories: storeFetchCategories,
+    createCategory: storeCreateCategory,
+    updateCategory: storeUpdateCategory,
+    deleteCategory: storeDeleteCategory,
     fetchStats: storeFetchStats,
     fetchAuditLogs: storeFetchAuditLogs,
     fetchInternalDocuments: storeFetchInternalDocuments,
     uploadInternalDocument: storeUploadInternalDocument,
+    shareInternalDocument: storeShareInternalDocument,
+    downloadInternalDocument: storeDownloadInternalDocument,
     fetchGeneratedDocuments: storeFetchGeneratedDocuments,
     generateDocument: storeGenerateDocument,
     revokeGeneratedDocument: storeRevokeGeneratedDocument,
@@ -293,6 +305,13 @@ export const useDocuments = (): UseDocumentsReturn => {
       await storeFetchDocuments(filters);
     },
     [storeFetchDocuments]
+  );
+
+  const fetchDocumentsByDemande = useCallback(
+    async (demandeId: string) => {
+      await storeFetchDocumentsByDemande(demandeId);
+    },
+    [storeFetchDocumentsByDemande]
   );
 
   const fetchDocumentById = useCallback(
@@ -498,6 +517,21 @@ export const useDocuments = (): UseDocumentsReturn => {
     await storeFetchCategories();
   }, [storeFetchCategories]);
 
+  const createCategory = useCallback(
+    async (payload: Omit<DocumentCategory, 'id'>) => await storeCreateCategory(payload),
+    [storeCreateCategory]
+  );
+
+  const updateCategory = useCallback(
+    async (id: string, payload: Partial<Omit<DocumentCategory, 'id'>>) => await storeUpdateCategory(id, payload),
+    [storeUpdateCategory]
+  );
+
+  const deleteCategory = useCallback(
+    async (id: string) => await storeDeleteCategory(id),
+    [storeDeleteCategory]
+  );
+
   const fetchStats = useCallback(async () => {
     await storeFetchStats();
   }, [storeFetchStats]);
@@ -523,6 +557,18 @@ export const useDocuments = (): UseDocumentsReturn => {
       return doc;
     },
     [storeUploadInternalDocument]
+  );
+
+  const shareInternalDocument = useCallback(
+    async (id: string, targetAgentIds: string[], targetRoleIds: string[]) => {
+      await storeShareInternalDocument(id, targetAgentIds, targetRoleIds);
+    },
+    [storeShareInternalDocument]
+  );
+
+  const downloadInternalDocument = useCallback(
+    async (doc: InternalDocument) => await storeDownloadInternalDocument(doc),
+    [storeDownloadInternalDocument]
   );
 
   const fetchGeneratedDocuments = useCallback(
@@ -585,6 +631,7 @@ export const useDocuments = (): UseDocumentsReturn => {
     averageSize,
 
     fetchDocuments,
+    fetchDocumentsByDemande,
     fetchDocumentById,
     uploadDocument,
     validateDocument,
@@ -624,11 +671,16 @@ export const useDocuments = (): UseDocumentsReturn => {
     getStorageStats,
 
     fetchCategories,
+    createCategory,
+    updateCategory,
+    deleteCategory,
     fetchStats,
     fetchAuditLogs,
 
     fetchInternalDocuments,
     uploadInternalDocument,
+    shareInternalDocument,
+    downloadInternalDocument,
     internalDocumentsByDepartment,
     internalDocumentsByConfidentiality,
 

@@ -15,6 +15,8 @@ import { ROLES_CONFIG } from '../../config/roles';
 interface RoleAndPermissionsCardProps {
   roles: UserRole[];
   activeRole?: Role;
+  /** Ouvre la demande d'accès / de modification adressée à l'administrateur. */
+  onRequestAccess?: () => void;
 }
 
 const RESOURCE_ICONS: Record<string, React.ReactNode> = {
@@ -27,6 +29,9 @@ const RESOURCE_ICONS: Record<string, React.ReactNode> = {
   'audit': <Shield className="w-4 h-4" />,
   'payment': <FileText className="w-4 h-4" />,
   'stats': <FileText className="w-4 h-4" />,
+  'availability': <Calendar className="w-4 h-4" />,
+  'etudiant': <Users className="w-4 h-4" />,
+  'message': <FileText className="w-4 h-4" />,
 };
 
 const RESOURCE_LABELS: Record<string, string> = {
@@ -39,11 +44,15 @@ const RESOURCE_LABELS: Record<string, string> = {
   'audit': 'Audit',
   'payment': 'Paiements',
   'stats': 'Statistiques',
+  'availability': 'Disponibilités',
+  'etudiant': 'Étudiants',
+  'message': 'Messagerie',
 };
 
 export const RoleAndPermissionsCard: React.FC<RoleAndPermissionsCardProps> = ({
   roles,
   activeRole,
+  onRequestAccess,
 }) => {
   const [expandedPermissions, setExpandedPermissions] = useState(false);
 
@@ -61,12 +70,13 @@ export const RoleAndPermissionsCard: React.FC<RoleAndPermissionsCardProps> = ({
   const roleConfig = ROLES_CONFIG[activeRole.name];
   
   // Grouper les permissions par ressource
-  const groupedPermissions = activeRole.permissions.reduce((acc, perm) => {
+  const activePermissions = activeRole.permissions ?? [];
+  const groupedPermissions = activePermissions.reduce((acc, perm) => {
     const resource = perm.code.split(':')[0];
     if (!acc[resource]) acc[resource] = [];
     acc[resource].push(perm);
     return acc;
-  }, {} as Record<string, typeof activeRole.permissions>);
+  }, {} as Record<string, typeof activePermissions>);
 
   const sortedResources = Object.keys(groupedPermissions).sort();
 
@@ -113,7 +123,7 @@ export const RoleAndPermissionsCard: React.FC<RoleAndPermissionsCardProps> = ({
           className="flex items-center justify-between w-full text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
           onClick={() => setExpandedPermissions(!expandedPermissions)}
         >
-          <span>Permissions ({activeRole.permissions.length})</span>
+          <span>Permissions ({activePermissions.length})</span>
           {expandedPermissions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </button>
 
@@ -145,7 +155,7 @@ export const RoleAndPermissionsCard: React.FC<RoleAndPermissionsCardProps> = ({
               );
             })}
 
-            {activeRole.permissions.length === 0 && (
+            {activePermissions.length === 0 && (
               <div className="text-center py-4 text-gray-500">
                 Aucune permission spécifique pour ce rôle
               </div>
@@ -156,7 +166,7 @@ export const RoleAndPermissionsCard: React.FC<RoleAndPermissionsCardProps> = ({
 
       {/* Bouton de demande */}
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <Button variant="outline" size="sm" className="w-full">
+        <Button variant="outline" size="sm" className="w-full" onClick={onRequestAccess} disabled={!onRequestAccess}>
           <AlertCircle className="w-4 h-4 mr-2" />
           Demander une modification d'accès
         </Button>

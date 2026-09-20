@@ -1,6 +1,6 @@
 // src/pages/utilisateurs/RolesPermissionsPage.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Shield, Plus, Edit, Trash2
 } from 'lucide-react';
@@ -43,6 +43,10 @@ export const RolesPermissionsPage: React.FC = () => {
     isSystem: false,
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (roles.length === 0) refreshRoles();
+  }, []);
 
   const handleSelectRole = (role: Role) => {
     console.log("Selected role : "+role);

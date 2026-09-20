@@ -11,6 +11,7 @@ import { Badge } from '../ui/badge';
 import { Skeleton } from '../ui/skeleton';
 import { EmptyState } from '../ui/emptyState';
 import { FileText, AlertTriangle, Clock, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { formatDateShort } from '../../lib/date';
 
 const STATUS_CONFIG: Record<AppStatus, { label: string; color: string; icon: React.ElementType }> = {
   [AppStatus.DRAFT]: { label: 'Brouillon', color: 'bg-gray-100 text-gray-700', icon: FileText },
@@ -114,7 +115,7 @@ export const DemandeList: React.FC<DemandeListProps> = ({ onSelectDemande }) => 
                   {demande.dossierNumber}
                 </span>
                 <p className="text-xs text-gray-400 md:hidden">
-                  {new Date(demande.createdAt).toLocaleDateString('fr-FR')}
+                  {formatDateShort(demande.createdAt)}
                 </p>
               </div>
 

@@ -14,8 +14,13 @@ import { DocumentStatusBadge } from '../DocumentStatusBadge';
 import { DocumentGED } from '../../../types/document';
 import { DocStatus } from '../../../types/etudiant';
 import { formatDateShort } from '../../../lib/date';
-import { useDocuments } from '../../../hooks/useDocuments';
 import { useToast } from '../../../hooks/useToast';
+import { documentTypeLabels } from '../../../config/document-labels';
+
+function ownerLabel(doc: DocumentGED): string {
+  if (doc.owner?.profile) return `${doc.owner.profile.firstName} ${doc.owner.profile.lastName}`;
+  return doc.ownerUserId;
+}
 
 interface DocumentQueueTableProps {
   documents: DocumentGED[];
@@ -241,12 +246,12 @@ export const DocumentQueueTable: React.FC<DocumentQueueTableProps> = ({
                 <TableCell>
                   <div className="flex items-center gap-1 text-sm">
                     <User className="w-3 h-3 text-gray-400" />
-                    <span>{doc.ownerUserId}</span>
+                    <span>{ownerLabel(doc)}</span>
                   </div>
                 </TableCell>
                 <TableCell>
                   <Badge color="gray" variant="light" size="xs">
-                    {doc.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                    {documentTypeLabels[doc.type]}
                   </Badge>
                 </TableCell>
                 <TableCell>
@@ -357,7 +362,7 @@ export const DocumentQueueTable: React.FC<DocumentQueueTableProps> = ({
 
       {documents.length > 0 && (
         <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-500">
-          {documents.length} document{documents.length > 1 ? 's' : ''} en attente
+          {documents.length} document{documents.length > 1 ? 's' : ''}
         </div>
       )}
     </Card>

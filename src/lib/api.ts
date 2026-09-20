@@ -13,12 +13,16 @@
 
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/authStore';
+import { authGetItem, authSetItem } from './authStorage';
 
 // ============================================================
 // CONFIGURATION
 // ============================================================
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// Phase 9 — un seul point d'entrée : le gateway nginx (infra/nginx/nginx.conf)
+// décide lui-même identity-api vs ambassade-api selon le préfixe de chemin
+// (même liste que l'ancien routage côté client, désormais côté serveur).
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost';
 const REQUEST_TIMEOUT = 30000; // 30 secondes
 
 // ============================================================
@@ -47,23 +51,15 @@ export const api: AxiosInstance = axios.create({
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // Récupérer le token depuis le store Zustand
-    const token = useAuthStore.getState().user?.id 
-      ? localStorage.getItem('poramma_access_token') 
+    const token = useAuthStore.getState().user?.id
+      ? authGetItem('poramma_access_token')
       : null;
-    
-    // MOCK: En développement, utiliser un token fictif
-    const mockToken = 'mock-jwt-token-' + Date.now();
-    
-    if (token || import.meta.env.DEV) {
-      config.headers.Authorization = `Bearer ${token || mockToken}`;
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    
-    // Ajouter l'ID de session pour l'audit
-    const sessionId = localStorage.getItem('poramma_session_id');
-    if (sessionId) {
-      config.headers['X-Session-Id'] = sessionId;
-    }
-    
+
+
     // Log en développement
     if (import.meta.env.DEV) {
       console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`, config.params || config.data);
@@ -80,6 +76,37 @@ api.interceptors.request.use(
 // ============================================================
 // INTERCEPTEUR RÉPONSE
 // ============================================================
+
+/**
+ * Refresh en vol partagé entre requêtes concurrentes.
+ *
+ * Le backend fait tourner (rotate) la session à chaque /auth/refresh : le
+ * refresh token utilisé est révoqué et un nouveau est émis. Si plusieurs
+ * requêtes expirent en même temps (ex: deux composants qui appellent l'API
+ * au même instant) et appellent CHACUNE /auth/refresh avec l'ancien
+ * refreshToken, seule la première réussit — les suivantes échouent contre
+ * une session déjà révoquée. Cette promesse partagée garantit qu'un seul
+ * appel /auth/refresh part à la fois ; les autres attendent son résultat.
+ */
+let refreshPromise: Promise<{ accessToken: string; refreshToken: string }> | null = null;
+
+function refreshTokens(): Promise<{ accessToken: string; refreshToken: string }> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const refreshToken = authGetItem('poramma_refresh_token');
+      if (!refreshToken) throw new Error('No refresh token');
+
+      // Plain axios, not `api` — avoids re-entering these interceptors.
+      const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
+      authSetItem('poramma_access_token', data.data.accessToken);
+      authSetItem('poramma_refresh_token', data.data.refreshToken);
+      return data.data;
+    })().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
 
 /**
  * Gère:
@@ -114,20 +141,11 @@ api.interceptors.response.use(
           originalRequest._retry = true;
           
           try {
-            const refreshToken = localStorage.getItem('poramma_refresh_token');
-            if (!refreshToken) throw new Error('No refresh token');
-            
-            // Appel au endpoint de refresh
-            // const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
-            // localStorage.setItem('poramma_access_token', data.token);
-            
-            // MOCK: Simuler le refresh
-            await new Promise((r) => setTimeout(r, 500));
-            localStorage.setItem('poramma_access_token', 'new-mock-token-' + Date.now());
-            
+            await refreshTokens();
+
             // Réessayer la requête originale
             return api(originalRequest);
-            
+
           } catch (refreshError) {
             // Refresh échoué → déconnexion
             useAuthStore.getState().logout();
@@ -146,8 +164,9 @@ api.interceptors.response.use(
       case 422:
         // Erreurs de validation
         const validationErrors = (error.response.data as any)?.details;
-        console.error('[API] 422 Validation:', validationErrors);
-        return Promise.reject(new ApiValidationError('Validation échouée', validationErrors));
+        const validationMessage = (error.response.data as any)?.message || 'Validation échouée';
+        console.error('[API] 422 Validation:', validationMessage, validationErrors);
+        return Promise.reject(new ApiValidationError(validationMessage, validationErrors));
         
       case 429:
         // Rate limiting

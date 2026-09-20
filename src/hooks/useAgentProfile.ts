@@ -7,6 +7,7 @@ import { AgentProfileData, AgentPreferences } from '../types/profile';
 interface UseAgentProfileReturn {
   profileData: AgentProfileData | null;
   activities: any[];
+  hasMoreActivities: boolean;
   isLoading: boolean;
   isLoadingActivities: boolean;
   error: string | null;
@@ -28,6 +29,7 @@ export const useAgentProfile = (): UseAgentProfileReturn => {
   const {
     profileData,
     activities,
+    hasMoreActivities,
     isLoading,
     isLoadingActivities,
     error,
@@ -44,6 +46,7 @@ export const useAgentProfile = (): UseAgentProfileReturn => {
   return {
     profileData,
     activities,
+    hasMoreActivities,
     isLoading,
     isLoadingActivities,
     error,

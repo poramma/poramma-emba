@@ -13,6 +13,7 @@ import { Table, TableHeader, TableRow, TableBody, TableCell } from '../../ui/tab
 import { InternalDocument, ConfidentialityLevel } from '../../../types/document';
 import { AgentDepartment } from '../../../types/auth';
 import { formatDateShort, formatFileSize } from '../../../lib/date';
+import { confidentialityLabels, departmentLabels } from '../../../config/document-labels';
 
 interface InternalDocumentListProps {
   documents: InternalDocument[];
@@ -21,20 +22,11 @@ interface InternalDocumentListProps {
   onDownload?: (doc: InternalDocument) => void;
 }
 
-const CONFIDENTIALITY_LABELS: Record<ConfidentialityLevel, { color: string; label: string }> = {
-  [ConfidentialityLevel.PUBLIC]: { color: 'gray', label: 'Public' },
-  [ConfidentialityLevel.INTERNAL]: { color: 'info', label: 'Interne' },
-  [ConfidentialityLevel.RESTRICTED]: { color: 'warning', label: 'Restreint' },
-  [ConfidentialityLevel.CONFIDENTIAL]: { color: 'error', label: 'Confidentiel' },
-};
-
-const DEPARTMENT_LABELS: Record<AgentDepartment, string> = {
-  [AgentDepartment.CONSULAR]: 'Consulaire',
-  [AgentDepartment.ADMINISTRATIVE]: 'Administratif',
-  [AgentDepartment.FINANCIAL]: 'Financier',
-  [AgentDepartment.COMMUNICATION]: 'Communication',
-  [AgentDepartment.SECURITY]: 'Sécurité',
-  [AgentDepartment.STUDIES]: 'Études',
+const CONFIDENTIALITY_COLORS: Record<ConfidentialityLevel, string> = {
+  [ConfidentialityLevel.PUBLIC]: 'gray',
+  [ConfidentialityLevel.INTERNAL]: 'info',
+  [ConfidentialityLevel.RESTRICTED]: 'warning',
+  [ConfidentialityLevel.CONFIDENTIAL]: 'error',
 };
 
 export const InternalDocumentList: React.FC<InternalDocumentListProps> = ({
@@ -106,7 +98,7 @@ export const InternalDocumentList: React.FC<InternalDocumentListProps> = ({
             onChange={(value) => setSelectedDepartment(value as AgentDepartment | 'all')}
             options={[
               { value: 'all', label: 'Tous les services' },
-              ...Object.entries(DEPARTMENT_LABELS).map(([value, label]) => ({ value, label })),
+              ...Object.entries(departmentLabels).map(([value, label]) => ({ value, label })),
             ]}
           />
           <Select
@@ -114,7 +106,7 @@ export const InternalDocumentList: React.FC<InternalDocumentListProps> = ({
             onChange={(value) => setSelectedConfidentiality(value as ConfidentialityLevel | 'all')}
             options={[
               { value: 'all', label: 'Tous les niveaux' },
-              ...Object.entries(CONFIDENTIALITY_LABELS).map(([value, { label }]) => ({ value, label })),
+              ...Object.entries(confidentialityLabels).map(([value, label]) => ({ value, label })),
             ]}
           />
         </div>
@@ -134,8 +126,8 @@ export const InternalDocumentList: React.FC<InternalDocumentListProps> = ({
           </TableHeader>
           <TableBody>
             {filteredDocs.map((doc) => {
-              const conf = CONFIDENTIALITY_LABELS[doc.confidentiality];
-              
+              const confColor = CONFIDENTIALITY_COLORS[doc.confidentiality];
+
               return (
                 <TableRow 
                   key={doc.id}
@@ -154,12 +146,12 @@ export const InternalDocumentList: React.FC<InternalDocumentListProps> = ({
                   </TableCell>
                   <TableCell>
                     <Badge color="gray" variant="light">
-                      {DEPARTMENT_LABELS[doc.department] || doc.department}
+                      {departmentLabels[doc.department] ?? doc.department}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge color={conf.color as any} variant="light" startIcon={<Lock className="w-3 h-3" />}>
-                      {conf.label}
+                    <Badge color={confColor as any} variant="light" startIcon={<Lock className="w-3 h-3" />}>
+                      {confidentialityLabels[doc.confidentiality]}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -167,7 +159,7 @@ export const InternalDocumentList: React.FC<InternalDocumentListProps> = ({
                       {formatDateShort(doc.createdAt)}
                     </div>
                     <div className="text-xs text-gray-400">
-                      par {doc.createdBy}
+                      par {doc.createdByUser?.profile ? `${doc.createdByUser.profile.firstName} ${doc.createdByUser.profile.lastName}` : doc.createdBy}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">

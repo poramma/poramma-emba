@@ -19,22 +19,26 @@ import DocumentQueueFilters from '../../components/documents/queue/DocumentQueue
 export const QueuePage: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { 
-    documents, 
-    fetchDocuments, 
+  const {
+    documents,
+    stats,
+    fetchDocuments,
+    fetchStats,
     isLoading,
     validateDocument,
   } = useDocuments();
   const { can } = usePermission();
 
-  const [filters, setFilters] = useState<DocumentFilters>({
-    status: DocStatus.IN_REVIEW,
-  });
+  // Tous les statuts par défaut — pas de filtre présélectionné.
+  const [filters, setFilters] = useState<DocumentFilters>({});
 
   const canValidate = can(PermissionCode.DOCUMENT_VALIDATE);
 
   useEffect(() => {
     fetchDocuments(filters);
+    // Le badge "en attente" reste correct indépendamment du filtre actif
+    // (il ne vient pas de `documents`, qui reflète le filtre courant).
+    fetchStats();
   }, []);
 
   const handleQuickAccept = async (id: string) => {
@@ -101,15 +105,14 @@ export const QueuePage: React.FC = () => {
   };
 
   const handleResetFilters = () => {
-    const resetFilters: DocumentFilters = { status: DocStatus.IN_REVIEW };
+    const resetFilters: DocumentFilters = {};
     setFilters(resetFilters);
     fetchDocuments(resetFilters);
   };
 
-  // Filtrer les documents en attente de validation
-  const pendingDocs = documents.filter(
-    d => d.status === DocStatus.IN_REVIEW || d.status === DocStatus.UPLOADED
-  );
+  // La table reflète le filtre actif (tous les statuts par défaut) — le
+  // badge "en attente" ci-dessous vient de `stats`, pas de cette liste.
+  const displayedDocs = documents;
 
   return (
     <PermissionGuard 
@@ -131,14 +134,14 @@ export const QueuePage: React.FC = () => {
                   File de vérification
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  {pendingDocs.length} document{pendingDocs.length > 1 ? 's' : ''} en attente de validation
+                  {displayedDocs.length} document{displayedDocs.length > 1 ? 's' : ''} affiché{displayedDocs.length > 1 ? 's' : ''}
                 </p>
               </div>
             </div>
             <div className="flex gap-2">
               <Badge color="warning" variant="solid" className="text-sm">
                 <Clock className="w-4 h-4 mr-1" />
-                {pendingDocs.length} en attente
+                {stats?.totalPending ?? 0} en attente
               </Badge>
             </div>
           </div>
@@ -155,7 +158,7 @@ export const QueuePage: React.FC = () => {
 
           {/* Tableau */}
           <DocumentQueueTable
-            documents={pendingDocs}
+            documents={displayedDocs}
             isLoading={isLoading}
             onQuickAccept={handleQuickAccept}
             onQuickReject={handleQuickReject}

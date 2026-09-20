@@ -7,6 +7,42 @@ import { useDemandes } from '../../hooks/useDemandes';
 import { DemandeHistory, AppStatus } from '../../types/demande';
 import { CheckCircle, XCircle, Clock, AlertTriangle, FileText, UserCheck, RotateCcw } from 'lucide-react';
 
+const STATUS_LABELS: Record<AppStatus, string> = {
+  [AppStatus.DRAFT]: 'Brouillon',
+  [AppStatus.SUBMITTED]: 'Soumise',
+  [AppStatus.IN_REVIEW]: 'En examen',
+  [AppStatus.ADDITIONAL_INFO_REQUIRED]: 'Infos manquantes',
+  [AppStatus.UNDER_VERIFICATION]: 'Vérification',
+  [AppStatus.APPROVED]: 'Approuvée',
+  [AppStatus.REJECTED]: 'Rejetée',
+  [AppStatus.COMPLETED]: 'Traitée',
+  [AppStatus.CANCELLED]: 'Annulée',
+  [AppStatus.ARCHIVED]: 'Archivée',
+};
+
+// Couvre les rôles RBAC (JWT roleName) et "STUDENT" (demandeur, pas de rôle
+// RBAC — voir demandes.service.ts côté backend).
+const ACTOR_ROLE_LABELS: Record<string, string> = {
+  STUDENT: 'Étudiant',
+  ADMIN: 'Administrateur',
+  AMBASSADOR: 'Ambassadeur',
+  SENIOR_AGENT: 'Agent senior',
+  AGENT: 'Agent',
+  RECEPTIONIST: 'Réceptionniste',
+  CULTURAL_ADVISOR: 'Conseiller Culturel',
+  AUDITOR: 'Auditeur',
+  SYSTEM: 'Système',
+};
+
+function statusLabel(status: AppStatus): string {
+  return STATUS_LABELS[status] ?? status;
+}
+
+function actorRoleLabel(role: string | null | undefined): string {
+  if (!role) return 'Utilisateur';
+  return ACTOR_ROLE_LABELS[role] ?? role;
+}
+
 const STATUS_ICONS: Record<AppStatus, React.ElementType> = {
   [AppStatus.DRAFT]: FileText,
   [AppStatus.SUBMITTED]: FileText,
@@ -61,7 +97,8 @@ export const DemandeTimeline: React.FC<DemandeTimelineProps> = ({ demandeId }) =
 
       <div className="space-y-6">
         {histories.map((history, index) => {
-          const Icon = STATUS_ICONS[history.toStatus] || FileText;
+          const isAssignment = history.action === 'ASSIGNMENT';
+          const Icon = isAssignment ? UserCheck : STATUS_ICONS[history.toStatus] || FileText;
           const isFirst = index === 0;
           const isVisible = history.isVisibleToUser;
 
@@ -71,7 +108,8 @@ export const DemandeTimeline: React.FC<DemandeTimelineProps> = ({ demandeId }) =
               history={history}
               icon={Icon}
               isFirst={isFirst}
-              colorClass={STATUS_COLORS[history.toStatus]}
+              isAssignment={isAssignment}
+              colorClass={isAssignment ? 'bg-indigo-100 text-indigo-600' : STATUS_COLORS[history.toStatus]}
               isVisible={isVisible}
             />
           );
@@ -86,9 +124,10 @@ const TimelineItem: React.FC<{
   history: DemandeHistory;
   icon: React.ElementType;
   isFirst: boolean;
+  isAssignment: boolean;
   colorClass: string;
   isVisible: boolean;
-}> = ({ history, icon: Icon, isFirst, colorClass, isVisible }) => (
+}> = ({ history, icon: Icon, isFirst, isAssignment, colorClass, isVisible }) => (
   <div className="relative flex gap-4">
     {/* Point sur la ligne */}
     <div className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${colorClass} ${isFirst ? 'ring-2 ring-offset-2 ring-primary' : ''}`}>
@@ -100,11 +139,11 @@ const TimelineItem: React.FC<{
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-gray-900 dark:text-white">
-            {history.fromStatus} → {history.toStatus}
+            {isAssignment ? 'Dossier réassigné' : `${statusLabel(history.fromStatus)} → ${statusLabel(history.toStatus)}`}
           </p>
           <p className="text-xs text-gray-500 mt-0.5">
             Par <span className="font-medium">{history.actorName}</span>
-            {' '}({history.actorRole})
+            {' '}({actorRoleLabel(history.actorRole)})
             {!isVisible && <span className="ml-2 text-amber-600">• Interne</span>}
           </p>
           {history.comment && (

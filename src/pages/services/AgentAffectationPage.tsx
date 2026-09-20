@@ -15,9 +15,12 @@ import { Badge } from '../../components/ui/badge';
 import { Modal } from '../../components/ui/modal';
 import { PermissionGuard } from '../../components/auth/PermissionGuard';
 import { useServices } from '../../hooks/useServices';
+import { useAgents } from '../../hooks/useAgents';
 import { usePermission } from '../../hooks/usePermission';
 import { useAuth } from '../../hooks/useAuth';
 import { formatDateShort } from '../../lib/date';
+import { api } from '../../lib/api';
+import { Agent } from '../../types/auth';
 
 // ============================================================
 // TYPES
@@ -38,98 +41,9 @@ interface AgentAssignment {
   active: boolean;
 }
 
-interface Agent {
-  id: string;
-  name: string;
-  matricule: string;
-  email: string;
-  department: string;
-  active: boolean;
+function agentDisplayName(agent: Agent): string {
+  return `${agent.user.profile?.firstName ?? ''} ${agent.user.profile?.lastName ?? ''}`.trim() || agent.matricule;
 }
-
-// ============================================================
-// MOCK DATA
-// ============================================================
-
-const MOCK_AGENTS: Agent[] = [
-  {
-    id: 'agent-001',
-    name: 'Mamadou KONATÉ',
-    matricule: 'AGT-001-MK',
-    email: 'm.konate@ambassade.ml',
-    department: 'Consulaire',
-    active: true,
-  },
-  {
-    id: 'agent-002',
-    name: 'Fatima COULIBALY',
-    matricule: 'AGT-002-FC',
-    email: 'f.coulibaly@ambassade.ml',
-    department: 'Consulaire',
-    active: true,
-  },
-  {
-    id: 'agent-003',
-    name: 'Amadou DIALLO',
-    matricule: 'AGT-003-AD',
-    email: 'a.diallo@ambassade.ml',
-    department: 'Études',
-    active: true,
-  },
-  {
-    id: 'agent-004',
-    name: 'Aïssata KEITA',
-    matricule: 'AGT-004-AK',
-    email: 'a.keita@ambassade.ml',
-    department: 'Administratif',
-    active: false,
-  },
-];
-
-const MOCK_ASSIGNMENTS: AgentAssignment[] = [
-  {
-    id: 'ass-001',
-    agentId: 'agent-002',
-    agentName: 'Fatima COULIBALY',
-    agentMatricule: 'AGT-002-FC',
-    subServiceId: 'sub-011',
-    subServiceName: 'Renouvellement Carte Consulaire',
-    isPrimary: true,
-    maxDailyAppointments: 8,
-    assignedAt: '2024-01-15T00:00:00Z',
-    validFrom: '2024-01-15T00:00:00Z',
-    validUntil: null,
-    active: true,
-  },
-  {
-    id: 'ass-002',
-    agentId: 'agent-003',
-    agentName: 'Amadou DIALLO',
-    agentMatricule: 'AGT-003-AD',
-    subServiceId: 'sub-006',
-    subServiceName: 'Demande de Passeport Ordinaire',
-    isPrimary: true,
-    maxDailyAppointments: 6,
-    assignedAt: '2024-02-01T00:00:00Z',
-    validFrom: '2024-02-01T00:00:00Z',
-    validUntil: null,
-    active: true,
-  },
-  {
-    id: 'ass-003',
-    agentId: 'agent-001',
-    agentName: 'Mamadou KONATÉ',
-    agentMatricule: 'AGT-001-MK',
-    subServiceId: 'sub-010',
-    subServiceName: 'Nouvelle demande Carte Consulaire',
-    isPrimary: false,
-    maxDailyAppointments: 4,
-    assignedAt: '2024-03-01T00:00:00Z',
-    validFrom: '2024-03-01T00:00:00Z',
-    validUntil: '2024-12-31T00:00:00Z',
-    active: true,
-  },
-];
 
 // ============================================================
 // COMPOSANT PRINCIPAL
@@ -138,12 +52,12 @@ const MOCK_ASSIGNMENTS: AgentAssignment[] = [
 export const AgentAffectationPage: React.FC = () => {
   const navigate = useNavigate();
   const { services, subServices } = useServices();
+  const { agents, fetchAgents } = useAgents();
   const { canManageServices, canAssignAgents } = usePermission();
   const { user } = useAuth();
 
   // États
-  const [assignments, setAssignments] = useState<AgentAssignment[]>(MOCK_ASSIGNMENTS);
-  const [agents] = useState<Agent[]>(MOCK_AGENTS);
+  const [assignments, setAssignments] = useState<AgentAssignment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedService, setSelectedService] = useState<string>('all');
@@ -169,6 +83,51 @@ export const AgentAffectationPage: React.FC = () => {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const canManage = canManageServices() || canAssignAgents();
+
+  // ============================================================
+  // CHARGEMENT — pas d'endpoint "toutes les affectations" côté backend
+  // (seulement GET /agents/:id/assignments, par agent) ; on charge la
+  // liste réelle des agents puis on agrège leurs affectations.
+  // ============================================================
+
+  useEffect(() => {
+    fetchAgents();
+  }, [fetchAgents]);
+
+  const loadAssignments = async (agentList: Agent[]) => {
+    setIsLoading(true);
+    try {
+      const results = await Promise.all(
+        agentList.map((agent) =>
+          api.get(`/agents/${agent.id}/assignments`).then(({ data }) =>
+            (data.data as any[]).map((a): AgentAssignment => ({
+              id: a.id,
+              agentId: a.agentId,
+              agentName: agentDisplayName(agent),
+              agentMatricule: agent.matricule,
+              subServiceId: a.subServiceId,
+              subServiceName: a.subService?.name ?? 'Service inconnu',
+              isPrimary: a.isPrimary,
+              maxDailyAppointments: a.maxDailyAppointments ?? 0,
+              assignedAt: a.assignedAt,
+              validFrom: a.validFrom,
+              validUntil: a.validUntil,
+              active: a.active,
+            }))
+          )
+        )
+      );
+      setAssignments(results.flat());
+    } catch (error) {
+      console.error('Erreur lors du chargement des affectations:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (agents.length > 0) loadAssignments(agents);
+  }, [agents]);
 
   // ============================================================
   // FILTRAGE
@@ -207,33 +166,15 @@ export const AgentAffectationPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // TODO: Appel API
-      // const { data } = await api.post('/agent-assignments', formData);
-      
-      // Mock: Création locale
-      const selectedAgent = agents.find(a => a.id === formData.agentId);
-      const selectedSub = subServices.find(s => s.id === formData.subServiceId);
-      
-      const newAssignment: AgentAssignment = {
-        id: `ass-${Date.now()}`,
-        agentId: formData.agentId,
-        agentName: selectedAgent?.name || 'Agent inconnu',
-        agentMatricule: selectedAgent?.matricule || 'N/A',
+      await api.post(`/agents/${formData.agentId}/assignments`, {
         subServiceId: formData.subServiceId,
-        subServiceName: selectedSub?.name || 'Service inconnu',
         isPrimary: formData.isPrimary,
         maxDailyAppointments: formData.maxDailyAppointments,
-        assignedAt: new Date().toISOString(),
-        validFrom: formData.validFrom,
+        validFrom: formData.validFrom || null,
         validUntil: formData.validUntil || null,
-        active: formData.active,
-      };
-
-      setAssignments(prev => [newAssignment, ...prev]);
+      });
+      await loadAssignments(agents);
       setIsCreateModalOpen(false);
-      
-      // Notification de succès
-      console.log('Affectation créée avec succès');
     } catch (error) {
       console.error('Erreur lors de la création:', error);
     } finally {
@@ -262,36 +203,20 @@ export const AgentAffectationPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // TODO: Appel API
-      // await api.patch(`/agent-assignments/${selectedAssignment.id}`, formData);
-      
-      // Mock: Mise à jour locale
-      setAssignments(prev => prev.map(ass => {
-        if (ass.id === selectedAssignment.id) {
-          const selectedAgent = agents.find(a => a.id === formData.agentId);
-          const selectedSub = subServices.find(s => s.id === formData.subServiceId);
-          
-          return {
-            ...ass,
-            agentId: formData.agentId,
-            agentName: selectedAgent?.name || ass.agentName,
-            agentMatricule: selectedAgent?.matricule || ass.agentMatricule,
-            subServiceId: formData.subServiceId,
-            subServiceName: selectedSub?.name || ass.subServiceName,
-            isPrimary: formData.isPrimary,
-            maxDailyAppointments: formData.maxDailyAppointments,
-            validFrom: formData.validFrom,
-            validUntil: formData.validUntil || null,
-            active: formData.active,
-          };
-        }
-        return ass;
-      }));
-      
+      // Le backend n'autorise pas de déplacer une affectation vers un autre
+      // agent (agentId n'est pas dans updateAssignmentDto) — seul le service
+      // et les modalités de l'affectation sont modifiables.
+      await api.patch(`/assignments/${selectedAssignment.id}`, {
+        subServiceId: formData.subServiceId,
+        isPrimary: formData.isPrimary,
+        maxDailyAppointments: formData.maxDailyAppointments,
+        validFrom: formData.validFrom || null,
+        validUntil: formData.validUntil || null,
+        active: formData.active,
+      });
+      await loadAssignments(agents);
       setIsEditModalOpen(false);
       setSelectedAssignment(null);
-      
-      console.log('Affectation mise à jour avec succès');
     } catch (error) {
       console.error('Erreur lors de la mise à jour:', error);
     } finally {
@@ -310,16 +235,10 @@ export const AgentAffectationPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // TODO: Appel API
-      // await api.delete(`/agent-assignments/${selectedAssignment.id}`);
-      
-      // Mock: Suppression locale
+      await api.delete(`/assignments/${selectedAssignment.id}`);
       setAssignments(prev => prev.filter(ass => ass.id !== selectedAssignment.id));
-      
       setIsDeleteModalOpen(false);
       setSelectedAssignment(null);
-      
-      console.log('Affectation supprimée avec succès');
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
     } finally {
@@ -332,16 +251,10 @@ export const AgentAffectationPage: React.FC = () => {
     setIsLoading(true);
     try {
       const newStatus = !assignment.active;
-      
-      // TODO: Appel API
-      // await api.patch(`/agent-assignments/${assignment.id}`, { active: newStatus });
-      
-      // Mock: Mise à jour locale
-      setAssignments(prev => prev.map(ass => 
+      await api.patch(`/assignments/${assignment.id}`, { active: newStatus });
+      setAssignments(prev => prev.map(ass =>
         ass.id === assignment.id ? { ...ass, active: newStatus } : ass
       ));
-      
-      console.log(`Affectation ${newStatus ? 'activée' : 'désactivée'} avec succès`);
     } catch (error) {
       console.error('Erreur lors du changement de statut:', error);
     } finally {
@@ -452,7 +365,7 @@ export const AgentAffectationPage: React.FC = () => {
                 onChange={(value) => setSelectedAgent(value)}
                 options={[
                   { value: 'all', label: 'Tous les agents' },
-                  ...agents.map(a => ({ value: a.id, label: a.name })),
+                  ...agents.map(a => ({ value: a.id, label: agentDisplayName(a) })),
                 ]}
               />
               <Select
@@ -609,9 +522,9 @@ export const AgentAffectationPage: React.FC = () => {
             onChange={(value) => setFormData({ ...formData, agentId: value })}
             options={[
               { value: '', label: 'Sélectionnez un agent' },
-              ...agents.filter(a => a.active).map(a => ({ 
-                value: a.id, 
-                label: `${a.name} (${a.matricule})` 
+              ...agents.filter(a => a.active).map(a => ({
+                value: a.id,
+                label: `${agentDisplayName(a)} (${a.matricule})`
               })),
             ]}
             error={!!formErrors.agentId}
@@ -710,23 +623,9 @@ export const AgentAffectationPage: React.FC = () => {
                 </div>
               </div>
 
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Sélectionnez un agent pour l'assigner au service consulaire.
-              </p>
-              <Select
-                label="Agent *"
-                value={formData.agentId}
-                onChange={(value) => setFormData({ ...formData, agentId: value })}
-                options={[
-                  { value: '', label: 'Sélectionnez un agent' },
-                  ...agents.filter(a => a.active).map(a => ({ 
-                    value: a.id, 
-                    label: `${a.name} (${a.matricule})` 
-                  })),
-                ]}
-                error={!!formErrors.agentId}
-                helperText={formErrors.agentId}
-              />
+              {/* L'agent d'une affectation existante n'est pas modifiable
+                  (updateAssignmentDto côté backend n'accepte pas agentId) —
+                  pour réaffecter à un autre agent, supprimer puis recréer. */}
 
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Sélectionnez un service pour l'assigner à l'agent.

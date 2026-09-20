@@ -19,60 +19,38 @@ import { usePermission } from '../../hooks/usePermission';
 import { useToast } from '../../hooks/useToast';
 import { PermissionCode } from '../../types/auth';
 import { DocStatus, DocumentFilters, DocumentType } from '../../types';
+import { api } from '../../lib/api';
+import { useDebouncedSearch } from '../../hooks/useDebouncedSearch';
 
-// Données mockées pour les étudiants
-const MOCK_STUDENTS = [
-  {
-    id: 'usr-stu-001',
-    inue: 'ML-STU-000237',
-    firstName: 'Moussa',
-    lastName: 'DIARRA',
-    email: 'moussa.diarra@etudiant.ma',
-    phone: '+212 6 12 34 56 78',
-    university: 'Université Mohammed V de Rabat',
-    faculty: 'Sciences économiques',
-    studyLevel: 'Master 2',
-    status: 'VERIFIED',
-  },
-  {
-    id: 'usr-stu-002',
-    inue: 'ML-STU-000456',
-    firstName: 'Fatoumata',
-    lastName: 'TOURÉ',
-    email: 'fatoumata.toure@etudiant.ma',
-    phone: '+212 6 98 76 54 32',
-    university: 'Université Hassan II de Casablanca',
-    faculty: 'Droit',
-    studyLevel: 'Licence 3',
-    status: 'VERIFIED',
-  },
-  {
-    id: 'usr-stu-003',
-    inue: 'ML-STU-000789',
-    firstName: 'Amadou',
-    lastName: 'KONÉ',
-    email: 'amadou.kone@etudiant.ma',
-    phone: '+212 6 55 44 33 22',
-    university: 'Université Cadi Ayyad de Marrakech',
-    faculty: 'Médecine',
-    studyLevel: 'Doctorat',
-    status: 'PENDING',
-  },
-  {
-    id: 'usr-stu-004',
-    inue: 'ML-STU-000321',
-    firstName: 'Aïssata',
-    lastName: 'KEITA',
-    email: 'aissata.keita@etudiant.ma',
-    phone: '+212 6 77 88 99 00',
-    university: 'Université Ibn Tofail de Kénitra',
-    faculty: 'Sciences',
-    studyLevel: 'Licence 1',
-    status: 'VERIFIED',
-  },
-];
+/** Étudiant tel qu'affiché dans le sélecteur — issu de la base (GET /etudiants), jamais de données de démonstration. */
+interface StudentOption {
+  id: string; // = userId
+  inue: string | null;
+  firstName: string;
+  lastName: string;
+  email: string;
+  university: string | null;
+  status: string;
+}
 
-type TabType = 'list' | 'dossier' | 'upload';
+const STUDENT_STATUS: Record<string, { label: string; color: "success" | "warning" | "error" | "gray" }> = {
+  VALIDATED: { label: "Validé", color: "success" },
+  PENDING: { label: "En attente", color: "warning" },
+  REJECTED: { label: "Rejeté", color: "error" },
+  SUSPENDED: { label: "Suspendu", color: "gray" },
+};
+
+function toOption(e: any): StudentOption {
+  return {
+    id: e.id ?? e.userId,
+    inue: e.inue ?? null,
+    firstName: e.firstName ?? "",
+    lastName: e.lastName ?? "",
+    email: e.email ?? "",
+    university: e.profile?.university ?? null,
+    status: e.status ?? "PENDING",
+  };
+}
 
 export const StudentDocumentsPage: React.FC = () => {
   const { studentId } = useParams<{ studentId?: string }>();
@@ -87,8 +65,10 @@ export const StudentDocumentsPage: React.FC = () => {
   } = useDocuments();
   const { can } = usePermission();
 
-  const [activeTab, setActiveTab] = useState<TabType>(studentId ? 'dossier' : 'list');
-  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [selectedStudent, setSelectedStudent] = useState<StudentOption | null>(null);
+  const [students, setStudents] = useState<StudentOption[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+  const [studentsError, setStudentsError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<DocumentFilters>({});
   const [showUpload, setShowUpload] = useState(false);
@@ -102,30 +82,52 @@ export const StudentDocumentsPage: React.FC = () => {
     fetchCategories();
   }, []);
 
-  // Si un studentId est passé dans l'URL, charger ses documents
-  useEffect(() => {
-    if (studentId) {
-      const student = MOCK_STUDENTS.find(s => s.id === studentId);
-      if (student) {
-        setSelectedStudent(student);
-        setActiveTab('dossier');
-        fetchDocuments({ ownerUserId: studentId });
-      }
+  // Étudiants réels : liste initiale à l'ouverture du sélecteur, puis recherche en temps réel (nom, email, INUE).
+  const loadStudents = async (query: string) => {
+    setLoadingStudents(true);
+    setStudentsError(null);
+    try {
+      const { data } = await api.get("/etudiants", { params: { search: query || undefined, limit: 20, sortBy: "registeredAt", sortOrder: "desc" } });
+      setStudents((data.data ?? []).map(toOption));
+    } catch (err) {
+      setStudents([]);
+      setStudentsError(err instanceof Error && err.message ? err.message : "Impossible de charger les étudiants.");
+    } finally {
+      setLoadingStudents(false);
     }
-  }, [studentId]);
+  };
 
-  const filteredStudents = MOCK_STUDENTS.filter(student => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    const fullName = `${student.firstName} ${student.lastName}`.toLowerCase();
-    return fullName.includes(query) || 
-           student.inue.toLowerCase().includes(query) ||
-           student.email.toLowerCase().includes(query);
+  useDebouncedSearch(searchQuery, (q) => {
+    if (showStudentSelector) loadStudents(q);
   });
 
-  const handleSelectStudent = (student: any) => {
+  useEffect(() => {
+    if (showStudentSelector) loadStudents(searchQuery.trim());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showStudentSelector]);
+
+  // Un studentId dans l'URL : on charge cet étudiant depuis la base, puis ses documents.
+  useEffect(() => {
+    if (!studentId) return;
+    let cancelled = false;
+    api
+      .get(`/etudiants/${studentId}`)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setSelectedStudent(toOption(data.data));
+        fetchDocuments({ ownerUserId: studentId });
+      })
+      .catch(() => {
+        if (!cancelled) toast({ title: "Étudiant introuvable", description: "Ce dossier n'existe plus ou vous n'y avez pas accès.", variant: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId]);
+
+  const handleSelectStudent = (student: StudentOption) => {
     setSelectedStudent(student);
-    setActiveTab('dossier');
     setShowStudentSelector(false);
     fetchDocuments({ ownerUserId: student.id });
     navigate(`/documents/students/${student.id}`, { replace: true });
@@ -133,7 +135,6 @@ export const StudentDocumentsPage: React.FC = () => {
 
   const handleBackToList = () => {
     setSelectedStudent(null);
-    setActiveTab('list');
     navigate('/documents/students', { replace: true });
     fetchDocuments(filters);
   };
@@ -185,11 +186,6 @@ export const StudentDocumentsPage: React.FC = () => {
     fetchDocuments(resetFilters);
   };
 
-  // Documents de l'étudiant sélectionné
-  const studentDocs = selectedStudent 
-    ? documents.filter(d => d.ownerUserId === selectedStudent.id)
-    : documents;
-
   // Statistiques des documents étudiants
   const getStudentStats = () => {
     const total = documents.length;
@@ -229,7 +225,7 @@ export const StudentDocumentsPage: React.FC = () => {
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400 mt-1">
                   {selectedStudent 
-                    ? `${selectedStudent.firstName} ${selectedStudent.lastName} - ${selectedStudent.inue}`
+                    ? `${selectedStudent.firstName} ${selectedStudent.lastName} - ${selectedStudent.inue ?? 'INUE non attribué'}`
                     : `${documents.length} document${documents.length > 1 ? 's' : ''} au total`
                   }
                 </p>
@@ -242,7 +238,9 @@ export const StudentDocumentsPage: React.FC = () => {
                   Sélectionner un étudiant
                 </Button>
               )}
-              {canUpload && (
+              {/* Un document doit toujours être rattaché à un étudiant —
+                  impossible de téléverser tant qu'aucun n'est sélectionné. */}
+              {canUpload && selectedStudent && (
                 <Button variant="primary" onClick={() => setShowUpload(!showUpload)}>
                   <Upload className="w-4 h-4 mr-2" />
                   {showUpload ? 'Masquer' : 'Téléverser'}
@@ -250,6 +248,14 @@ export const StudentDocumentsPage: React.FC = () => {
               )}
             </div>
           </div>
+
+          {!selectedStudent && canUpload && (
+            <Card className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                Sélectionnez un étudiant pour pouvoir téléverser un document en son nom.
+              </p>
+            </Card>
+          )}
 
           {/* Sélecteur d'étudiant */}
           {showStudentSelector && !selectedStudent && (
@@ -270,28 +276,32 @@ export const StudentDocumentsPage: React.FC = () => {
                 className="mb-4"
               />
               <div className="max-h-60 overflow-y-auto space-y-2">
-                {filteredStudents.map((student) => (
-                  <div
-                    key={student.id}
-                    className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition-colors"
-                    onClick={() => handleSelectStudent(student)}
-                  >
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {student.firstName} {student.lastName}
-                      </p>
-                      <p className="text-sm text-gray-500">{student.inue}</p>
-                      <p className="text-xs text-gray-400">{student.university}</p>
-                    </div>
-                    <Badge color={student.status === 'VERIFIED' ? 'success' : 'warning'} variant="light">
-                      {student.status}
-                    </Badge>
-                  </div>
-                ))}
-                {filteredStudents.length === 0 && (
-                  <div className="text-center py-4 text-gray-500">
-                    Aucun étudiant trouvé
-                  </div>
+                {loadingStudents && <div className="text-center py-4 text-gray-500">Recherche…</div>}
+                {studentsError && <div className="text-center py-4 text-red-600">{studentsError}</div>}
+                {!loadingStudents &&
+                  students.map((student) => {
+                    const st = STUDENT_STATUS[student.status] ?? { label: student.status, color: "gray" as const };
+                    return (
+                      <div
+                        key={student.id}
+                        className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition-colors"
+                        onClick={() => handleSelectStudent(student)}
+                      >
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {student.firstName} {student.lastName}
+                          </p>
+                          <p className="text-sm text-gray-500">{student.inue ?? "INUE non attribué"}</p>
+                          <p className="text-xs text-gray-400">{[student.email, student.university].filter(Boolean).join(" · ")}</p>
+                        </div>
+                        <Badge color={st.color} variant="light">
+                          {st.label}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                {!loadingStudents && !studentsError && students.length === 0 && (
+                  <div className="text-center py-4 text-gray-500">Aucun étudiant trouvé</div>
                 )}
               </div>
             </Card>
@@ -318,8 +328,8 @@ export const StudentDocumentsPage: React.FC = () => {
             <StudentDocumentDossier
               studentId={selectedStudent.id}
               studentName={`${selectedStudent.firstName} ${selectedStudent.lastName}`}
-              studentINUE={selectedStudent.inue}
-              university={selectedStudent.university}
+              studentINUE={selectedStudent.inue ?? 'INUE non attribué'}
+              university={selectedStudent.university ?? ''}
               onDocumentClick={handleDocumentClick}
             />
           )}

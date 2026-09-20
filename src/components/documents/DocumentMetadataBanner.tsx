@@ -6,6 +6,7 @@ import { Copy, AlertTriangle, Clock3 } from 'lucide-react';
 import { Card } from '../ui/card';
 import { DocumentGED } from '../../types';
 import { documentTypeLabels } from '../../config/document-labels';
+import { formatDateShort } from '../../lib/date';
 
 interface DocumentMetadataBannerProps {
   document: DocumentGED;
@@ -58,13 +59,13 @@ export const DocumentMetadataBanner: React.FC<DocumentMetadataBannerProps> = ({
         <div>
           <p className="text-gray-400 text-theme-xs mb-1">Soumis le</p>
           <p className="text-gray-700 dark:text-gray-300">
-            {new Date(document.createdAt).toLocaleDateString('fr-FR')}
+            {formatDateShort(document.createdAt)}
           </p>
         </div>
         <div>
           <p className="text-gray-400 text-theme-xs mb-1">Expire le</p>
           <p className="text-gray-700 dark:text-gray-300">
-            {document.expiryDate ? new Date(document.expiryDate).toLocaleDateString('fr-FR') : '—'}
+            {document.expiryDate ? formatDateShort(document.expiryDate) : '—'}
           </p>
         </div>
         <div>

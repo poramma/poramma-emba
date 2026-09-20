@@ -14,13 +14,16 @@ export interface AgentPreferences {
   };
 }
 
+/** Une ligne de « Mon activité » — GET /audit/me (journal d'audit filtré sur l'agent connecté). */
 export interface ActivityLogEntry {
   id: string;
-  action: string;
-  targetType: 'demande' | 'document' | 'rendez-vous' | 'service' | 'agent';
-  targetLabel: string;
-  targetId: string;
-  createdAt: string;
+  at: string;
+  action: string;        // code d'action (VALIDATE, UPDATE_STATUS…) — voir config/audit-labels
+  entityType: string;    // DEMANDE, RENDEZ_VOUS…
+  entityId: string;
+  targetLabel: string | null; // dossier / ticket / nom lisible, quand il est connu
+  result: string;
+  severity: string;
 }
 
 export interface AgentProfileData {
@@ -33,5 +36,5 @@ export interface AgentProfileData {
   availabilities: AgentAvailability[];
   exceptions: AgentException[];
   preferences: AgentPreferences;
-  activities: ActivityLogEntry[];
+  activities?: unknown[];
 }

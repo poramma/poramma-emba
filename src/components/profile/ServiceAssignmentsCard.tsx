@@ -13,10 +13,16 @@ import { formatDateShort } from '../../lib/date';
 
 interface ServiceAssignmentsCardProps {
   assignments: AgentServiceAssignment[];
+  /** Demande l'accès à un service (adressée à l'administrateur). */
+  onRequestAccess?: () => void;
+  /** Signale un problème d'affectation (adressé à l'administrateur). */
+  onReport?: () => void;
 }
 
 export const ServiceAssignmentsCard: React.FC<ServiceAssignmentsCardProps> = ({
   assignments,
+  onRequestAccess,
+  onReport,
 }) => {
   if (assignments.length === 0) {
     return (
@@ -31,6 +37,14 @@ export const ServiceAssignmentsCard: React.FC<ServiceAssignmentsCardProps> = ({
           <Briefcase className="w-12 h-12 mb-4 opacity-50" />
           <p className="text-sm">Aucun service assigné</p>
         </div>
+        {onRequestAccess && (
+          <div className="mt-2 border-t border-gray-200 pt-4 dark:border-gray-700">
+            <Button variant="outline" size="sm" className="w-full" onClick={onRequestAccess}>
+              <AlertCircle className="w-4 h-4 mr-2" />
+              Demander l'accès à un service
+            </Button>
+          </div>
+        )}
       </Card>
     );
   }
@@ -114,10 +128,18 @@ export const ServiceAssignmentsCard: React.FC<ServiceAssignmentsCardProps> = ({
       </div>
 
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <Button variant="outline" size="sm" className="w-full">
-          <AlertCircle className="w-4 h-4 mr-2" />
-          Signaler un problème d'affectation
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {onRequestAccess && (
+            <Button variant="outline" size="sm" className="flex-1" onClick={onRequestAccess}>
+              <Briefcase className="w-4 h-4 mr-2" />
+              Demander un autre service
+            </Button>
+          )}
+          <Button variant="outline" size="sm" className="flex-1" onClick={onReport} disabled={!onReport}>
+            <AlertCircle className="w-4 h-4 mr-2" />
+            Signaler un problème d'affectation
+          </Button>
+        </div>
       </div>
     </Card>
   );

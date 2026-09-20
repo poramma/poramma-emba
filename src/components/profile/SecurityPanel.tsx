@@ -11,6 +11,7 @@ import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Utilisateur } from '../../types/auth';
 import { useToast } from '../../hooks/useToast';
+import { formatDateTime } from '../../lib/date';
 
 interface SecurityPanelProps {
   user?: Utilisateur;
@@ -435,7 +436,7 @@ export const SecurityPanel: React.FC<SecurityPanelProps> = ({
                     <span>•</span>
                     <span>{session.location}</span>
                     <span>•</span>
-                    <span>Dernière activité: {new Date(session.lastActive).toLocaleString()}</span>
+                    <span>Dernière activité: {formatDateTime(session.lastActive)}</span>
                   </div>
                 </div>
               </div>

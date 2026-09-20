@@ -14,15 +14,18 @@ import { Badge } from '../../components/ui/badge';
 import { Tabs } from '../../components/ui/tabs';
 import { PermissionGuard } from '../../components/auth/PermissionGuard';
 import { DocumentViewer } from '../../components/documents/DocumentViewer';
+import { DocumentStatusBadge } from '../../components/documents/DocumentStatusBadge';
 import { DocumentVersion } from '../../components/documents/DocumentVersion';
 import { DocumentMetadataPanel } from '../../components/documents/detail/DocumentMetadataPanel';
 import { DocumentDecisionPanel } from '../../components/documents/detail/DocumentDecisionPanel';
+import { formatDateShort, formatDateTime } from '../../lib/date';
 import { DocumentAccessHistory } from '../../components/documents/detail/DocumentAccessHistory';
 import { useDocuments } from '../../hooks/useDocuments';
 import { usePermission } from '../../hooks/usePermission';
 import { useToast } from '../../hooks/useToast';
 import { PermissionCode } from '../../types/auth';
 import { DocStatus } from '../../types/etudiant';
+import { documentTypeLabels } from '../../config/document-labels';
 import { Skeleton } from '../../components/ui/skeleton';
 
 type TabType = 'viewer' | 'metadata' | 'versions' | 'history';
@@ -181,15 +184,13 @@ export const DocumentDetailPage: React.FC = () => {
                 </h1>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   <Badge color="gray" variant="light">
-                    {selectedDocument.type}
+                    {documentTypeLabels[selectedDocument.type]}
                   </Badge>
-                  <Badge color={selectedDocument.status === DocStatus.ACCEPTED ? 'success' : 'gray'} variant="light">
-                    {selectedDocument.status}
-                  </Badge>
+                  <DocumentStatusBadge status={selectedDocument.status} />
                   {selectedDocument.expiryDate && (
                     <Badge color="warning" variant="light">
                       <Calendar className="w-3 h-3 mr-1" />
-                      Expire le {new Date(selectedDocument.expiryDate).toLocaleDateString()}
+                      Expire le {formatDateShort(selectedDocument.expiryDate)}
                     </Badge>
                   )}
                 </div>
@@ -267,12 +268,8 @@ export const DocumentDetailPage: React.FC = () => {
                   </h4>
                   <dl className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <dt className="text-gray-500">ID</dt>
-                      <dd className="font-mono text-gray-700 dark:text-gray-300">{selectedDocument.id}</dd>
-                    </div>
-                    <div className="flex justify-between">
                       <dt className="text-gray-500">Type</dt>
-                      <dd className="text-gray-700 dark:text-gray-300">{selectedDocument.type}</dd>
+                      <dd className="text-gray-700 dark:text-gray-300">{documentTypeLabels[selectedDocument.type]}</dd>
                     </div>
                     <div className="flex justify-between">
                       <dt className="text-gray-500">Catégorie</dt>
@@ -283,9 +280,7 @@ export const DocumentDetailPage: React.FC = () => {
                     <div className="flex justify-between">
                       <dt className="text-gray-500">Statut</dt>
                       <dd>
-                        <Badge color={selectedDocument.status === DocStatus.ACCEPTED ? 'success' : 'gray'} variant="light">
-                          {selectedDocument.status}
-                        </Badge>
+                        <DocumentStatusBadge status={selectedDocument.status} size="sm" />
                       </dd>
                     </div>
                     <div className="flex justify-between">
@@ -302,14 +297,14 @@ export const DocumentDetailPage: React.FC = () => {
                     <div className="flex justify-between">
                       <dt className="text-gray-500">Soumis le</dt>
                       <dd className="text-gray-700 dark:text-gray-300">
-                        {new Date(selectedDocument.createdAt).toLocaleString()}
+                        {formatDateTime(selectedDocument.createdAt)}
                       </dd>
                     </div>
                     {selectedDocument.reviewedAt && (
                       <div className="flex justify-between">
                         <dt className="text-gray-500">Validé le</dt>
                         <dd className="text-gray-700 dark:text-gray-300">
-                          {new Date(selectedDocument.reviewedAt).toLocaleString()}
+                          {formatDateTime(selectedDocument.reviewedAt)}
                         </dd>
                       </div>
                     )}
@@ -317,7 +312,7 @@ export const DocumentDetailPage: React.FC = () => {
                       <div className="flex justify-between">
                         <dt className="text-gray-500">Expire le</dt>
                         <dd className="text-gray-700 dark:text-gray-300">
-                          {new Date(selectedDocument.expiryDate).toLocaleDateString()}
+                          {formatDateShort(selectedDocument.expiryDate)}
                         </dd>
                       </div>
                     )}

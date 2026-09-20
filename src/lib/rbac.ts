@@ -37,9 +37,9 @@ export function roleCanAccessPermission(
   roleName: RoleName,
   permission: PermissionCode
 ): boolean {
-  // Ambassadeur = tout
-  if (roleName === RoleName.AMBASSADOR) return true;
-  
+  // Admin = carte blanche
+  if (roleName === RoleName.ADMIN) return true;
+
   const permDef = getPermissionDefinition(permission);
   if (!permDef) return false;
   
@@ -54,8 +54,8 @@ export function roleCanAccessPermission(
  * Récupère toutes les permissions disponibles pour un rôle
  */
 export function getPermissionsForRole(roleName: RoleName): PermissionCode[] {
-  // Ambassadeur = toutes les permissions
-  if (roleName === RoleName.AMBASSADOR) {
+  // Admin = toutes les permissions
+  if (roleName === RoleName.ADMIN) {
     return PERMISSIONS.map((perm) => perm.code);
   }
   
@@ -92,15 +92,14 @@ export function isRoleSuperior(
 /**
  * Vérifie si un rôle peut gérer (créer/modifier/supprimer) un autre rôle
  * Règle: on ne peut gérer que les rôles inférieurs
- * Exception: Ambassadeur peut tout gérer
+ * Exception: Admin a carte blanche (gestion technique complète)
  */
 export function canManageRole(
   managerRole: RoleName,
   targetRole: RoleName
 ): boolean {
-  if (managerRole === RoleName.AMBASSADOR) return true;
-  if (managerRole === RoleName.ADMIN && targetRole !== RoleName.AMBASSADOR) return true;
-  
+  if (managerRole === RoleName.ADMIN) return true;
+
   return isRoleSuperior(managerRole, targetRole);
 }
 
@@ -143,7 +142,7 @@ export function canCreateUrgence(
   roleName: RoleName
 ): boolean {
   return (
-    roleName === RoleName.AMBASSADOR ||
+    roleName === RoleName.ADMIN ||
     permissions.includes(PermissionCode.RDV_CREATE_URGENCE)
   );
 }
@@ -157,7 +156,7 @@ export function canPrintDailySchedule(
   roleName: RoleName
 ): boolean {
   return (
-    roleName === RoleName.AMBASSADOR ||
+    roleName === RoleName.ADMIN ||
     permissions.includes(PermissionCode.RDV_PRINT_DAILY)
   );
 }
@@ -171,22 +170,22 @@ export function canAdminServices(
   roleName: RoleName
 ): boolean {
   return (
-    roleName === RoleName.AMBASSADOR ||
+    roleName === RoleName.ADMIN ||
     permissions.includes(PermissionCode.SERVICE_ADMIN)
   );
 }
 
 /**
  * Vérifie si l'utilisateur peut administrer les utilisateurs (rôles, permissions)
- * Nécessaire pour le besoin: "seul l'ambassadeur ou l'admin a la carte blanche"
+ * Nécessaire pour le besoin: "seul l'admin a la carte blanche"
  */
 export function canAdminUsers(
   permissions: PermissionCode[],
   roleName: RoleName
 ): boolean {
   return (
-    roleName === RoleName.AMBASSADOR ||
-    (roleName === RoleName.ADMIN && permissions.includes(PermissionCode.USER_ADMIN))
+    roleName === RoleName.ADMIN ||
+    permissions.includes(PermissionCode.USER_ADMIN)
   );
 }
 

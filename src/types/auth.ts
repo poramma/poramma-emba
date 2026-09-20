@@ -41,6 +41,7 @@ export enum RoleName {
   AGENT = 'AGENT',                     // level: 4 - Traitement standard
   RECEPTIONIST = 'RECEPTIONIST',       // level: 5 - Accueil, urgences, impression
   AUDITOR = 'AUDITOR',                 // level: 6 - Lecture seule, audit
+  CULTURAL_ADVISOR = 'CULTURAL_ADVISOR', // level: 4 - Conseiller Culturel : espace dédié, à visage découvert
 }
 
 /**
@@ -66,6 +67,14 @@ export enum PermissionCode {
   RDV_UPDATE = 'rdv:update',
   RDV_CANCEL = 'rdv:cancel',
   RDV_PRINT_DAILY = 'rdv:print-daily',         // Impression planning gardien
+  RDV_CHECKIN = 'rdv:checkin',                 // Accueil : valider l'arrivée (ticket de rendez-vous)
+
+  // Accueil : registre des demandes sur place
+  WALKIN_READ = 'walkin:read',
+  WALKIN_MANAGE = 'walkin:manage',
+
+  // Espace culturel (Conseiller Culturel + administrateur)
+  CULTURE_MANAGE = 'culture:manage',
 
   // Disponibilités
   AVAILABILITY_READ = 'availability:read',
@@ -95,6 +104,10 @@ export enum PermissionCode {
   DOCUMENT_UPLOAD = 'document:upload',
   DOCUMENT_DELETE = 'document:delete',
   DOCUMENT_SHARE = 'document:share',
+
+  // Étudiants
+  ETUDIANT_READ = 'etudiant:read',
+  ETUDIANT_VALIDATE = 'etudiant:validate',
   DOCUMENT_ARCHIVE = 'document:archive',
   DOCUMENT_GENERATE = 'document:generate',
   
@@ -102,7 +115,11 @@ export enum PermissionCode {
   COMM_READ = 'comm:read',
   COMM_CREATE = 'comm:create',
   COMM_SEND = 'comm:send',
-  
+
+  // Messagerie interne
+  MESSAGE_READ = 'message:read',
+  MESSAGE_CREATE = 'message:create',
+
   // Audit
   AUDIT_READ = 'audit:read',
   AUDIT_EXPORT = 'audit:export',

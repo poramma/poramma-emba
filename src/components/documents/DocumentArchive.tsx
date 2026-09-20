@@ -14,6 +14,7 @@ import { DocumentList } from './DocumentList';
 import { ExportButton } from './ExportButton';
 import { documentTypeLabels } from '../../config/document-labels';
 import { DocStatus } from '../../types';
+import { formatDateShort } from '../../lib/date';
 
 const PAGE_SIZE = 20;
 
@@ -56,8 +57,8 @@ export const DocumentArchive: React.FC = () => {
     Type: documentTypeLabels[doc.type] ?? doc.type,
     Propriétaire: doc.ownerUserId,
     Statut: doc.status,
-    'Soumis le': new Date(doc.createdAt).toLocaleDateString('fr-FR'),
-    'Expiré le': doc.expiryDate ? new Date(doc.expiryDate).toLocaleDateString('fr-FR') : '',
+    'Soumis le': formatDateShort(doc.createdAt),
+    'Expiré le': doc.expiryDate ? formatDateShort(doc.expiryDate) : '',
   }));
 
   return (

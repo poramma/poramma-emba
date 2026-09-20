@@ -11,6 +11,7 @@ import { AlertesUrgentes } from '../../components/dashboard/AlertesUrgentes';
 import { TauxSatisfaction } from '../../components/dashboard/TauxSatisfaction';
 import { useAuth } from '../../hooks/useAuth';
 import { PermissionCode } from '../../types/auth';
+import { formatDateFR } from '../../lib/date';
 
 export function DashboardPage() {
   const { user, isAuthenticated, isLoading: authLoading, can, requireAuth } = useAuth();
@@ -69,12 +70,7 @@ export function DashboardPage() {
           </p>
         </div>
         <div className="text-sm text-gray-400">
-          {new Date().toLocaleDateString('fr-FR', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          })}
+          {formatDateFR(new Date())}
         </div>
       </div>
 
