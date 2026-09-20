@@ -85,6 +85,7 @@ interface UseCommunicationReturn {
   uploadCampagneMedia: (campagneId: string, payload: UploadCampagneMediaPayload) => Promise<CampagneAttachment>;
   removeCampagneAttachment: (campagneId: string, attachmentId: string) => Promise<void>;
   reorderCampagneAttachments: (campagneId: string, orderedAttachmentIds: string[]) => Promise<void>;
+  updateCampagneAttachment: (campagneId: string, attachmentId: string, patch: { isBanner?: boolean; caption?: string | null }) => Promise<void>;
   setCoverImage: (campagneId: string, attachmentId: string) => Promise<void>;
 
   // Actions — ciblage
@@ -100,6 +101,9 @@ interface UseCommunicationReturn {
   fetchThreadMessages: (threadId: string) => Promise<void>;
   sendMessage: (threadId: string, content: string, attachments?: File[]) => Promise<void>;
   createThread: (demandeId: string | null, subject: string, participantIds: string[]) => Promise<Thread>;
+  markThreadRead: (threadId: string) => Promise<void>;
+  updateThreadStatus: (threadId: string, status: string) => Promise<void>;
+  addThreadParticipant: (threadId: string, userId: string) => Promise<void>;
 
   // Sélection
   setSelectedCampagne: (campagne: Campagne | null) => void;
@@ -139,6 +143,7 @@ export const useCommunication = (): UseCommunicationReturn => {
     uploadCampagneMedia: storeUploadCampagneMedia,
     removeCampagneAttachment: storeRemoveCampagneAttachment,
     reorderCampagneAttachments: storeReorderCampagneAttachments,
+    updateCampagneAttachment: storeUpdateCampagneAttachment,
     estimateRecipients: storeEstimateRecipients,
     fetchNotifications: storeFetchNotifications,
     markAsRead: storeMarkAsRead,
@@ -147,6 +152,9 @@ export const useCommunication = (): UseCommunicationReturn => {
     fetchThreadMessages: storeFetchThreadMessages,
     sendMessage: storeSendMessage,
     createThread: storeCreateThread,
+    markThreadRead: storeMarkThreadRead,
+    updateThreadStatus: storeUpdateThreadStatus,
+    addThreadParticipant: storeAddThreadParticipant,
     setSelectedCampagne: storeSetSelectedCampagne,
     setSelectedThread: storeSetSelectedThread,
   } = store;
@@ -367,6 +375,13 @@ export const useCommunication = (): UseCommunicationReturn => {
     [storeReorderCampagneAttachments]
   );
 
+  const updateCampagneAttachment = useCallback(
+    async (campagneId: string, attachmentId: string, patch: { isBanner?: boolean; caption?: string | null }) => {
+      await storeUpdateCampagneAttachment(campagneId, attachmentId, patch);
+    },
+    [storeUpdateCampagneAttachment]
+  );
+
   /**
    * SET COVER IMAGE — désigne une pièce jointe existante (de type IMAGE)
    * comme image de couverture. Implémenté ici comme un cas particulier
@@ -450,6 +465,21 @@ export const useCommunication = (): UseCommunicationReturn => {
     [storeCreateThread]
   );
 
+  const markThreadRead = useCallback(
+    async (threadId: string) => await storeMarkThreadRead(threadId),
+    [storeMarkThreadRead]
+  );
+
+  const updateThreadStatus = useCallback(
+    async (threadId: string, status: string) => await storeUpdateThreadStatus(threadId, status),
+    [storeUpdateThreadStatus]
+  );
+
+  const addThreadParticipant = useCallback(
+    async (threadId: string, userId: string) => await storeAddThreadParticipant(threadId, userId),
+    [storeAddThreadParticipant]
+  );
+
   // ============================================================
   // RETOUR
   // ============================================================
@@ -503,6 +533,7 @@ export const useCommunication = (): UseCommunicationReturn => {
     uploadCampagneMedia,
     removeCampagneAttachment,
     reorderCampagneAttachments,
+    updateCampagneAttachment,
     setCoverImage,
 
     estimateRecipients,
@@ -515,6 +546,9 @@ export const useCommunication = (): UseCommunicationReturn => {
     fetchThreadMessages,
     sendMessage,
     createThread,
+    markThreadRead,
+    updateThreadStatus,
+    addThreadParticipant,
 
     setSelectedCampagne: storeSetSelectedCampagne,
     setSelectedThread: storeSetSelectedThread,

@@ -148,8 +148,9 @@ export const CampagneDetailPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Aperçu */}
             <div>
-              <CampagnePreview 
+              <CampagnePreview
                 campagne={selectedCampagne}
+                campagneId={selectedCampagne.id}
                 showDate
                 createdAt={selectedCampagne.createdAt}
               />
@@ -159,6 +160,8 @@ export const CampagneDetailPage: React.FC = () => {
             <div className="lg:col-span-2">
               <CampagneStatsPanel
                 stats={selectedCampagne.stats}
+                interactions={selectedCampagne.interactions}
+                attachments={selectedCampagne.attachments}
                 status={selectedCampagne.status}
                 campagneId={id}
               />

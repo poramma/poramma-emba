@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Bell, BellOff, CheckCircle, XCircle, 
-  Clock, AlertCircle, Calendar, Mail,
-  MessageCircle, Smartphone, FileText, Users,
-  Filter, Search, ChevronDown, ChevronUp,
-  ArrowLeft, CheckCheck, Trash2
+import {
+  Bell, BellOff, CheckCircle, XCircle,
+  AlertCircle, Calendar, Mail,
+  MessageCircle, FileText, Users,
+  Search,
+  ArrowLeft, CheckCheck
 } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -16,9 +16,9 @@ import { Select } from '../../components/ui/select';
 import { Badge } from '../../components/ui/badge';
 import { PermissionGuard } from '../../components/auth/PermissionGuard';
 import { useCommunication } from '../../hooks/useCommunication';
-import { useAuth } from '../../hooks/useAuth';
 import { NotifType, NotifStatus } from '../../types/communication';
 import { formatDateShort, timeAgo } from '../../lib/date';
+import { notifTypeLabels, notifChannelLabels } from '../../config/communication-labels';
 
 const NOTIF_ICONS: Record<NotifType, React.ReactNode> = {
   [NotifType.DEMANDE_UPDATE]: <FileText className="w-5 h-5 text-blue-500" />,
@@ -33,9 +33,9 @@ const NOTIF_ICONS: Record<NotifType, React.ReactNode> = {
 
 const TYPE_OPTIONS = [
   { value: 'all', label: 'Tous les types' },
-  ...Object.entries(NotifType).map(([key, value]) => ({
+  ...Object.values(NotifType).map((value) => ({
     value,
-    label: key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()),
+    label: notifTypeLabels[value],
   })),
 ];
 
@@ -47,8 +47,7 @@ const STATUS_OPTIONS = [
 
 export const NotificationCenterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { 
+  const {
     notifications, 
     unreadCount,
     fetchNotifications, 
@@ -168,13 +167,13 @@ export const NotificationCenterPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <Select
                 value={filters.type}
-                onChange={(e) => handleFilterChange('type', e.target.value)}
+                onChange={(value) => handleFilterChange('type', value)}
                 options={TYPE_OPTIONS}
                 label="Type"
               />
               <Select
                 value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
+                onChange={(value) => handleFilterChange('status', value)}
                 options={STATUS_OPTIONS}
                 label="Statut"
               />
@@ -246,7 +245,7 @@ export const NotificationCenterPage: React.FC = () => {
                                     {notif.title}
                                   </span>
                                   <Badge color="gray" variant="light" size="xs">
-                                    {notif.type}
+                                    {notifTypeLabels[notif.type]}
                                   </Badge>
                                   {!isUnread && (
                                     <Badge color="gray" variant="light" size="xs">
@@ -263,7 +262,7 @@ export const NotificationCenterPage: React.FC = () => {
                                   </span>
                                   {notif.channel && (
                                     <Badge color="gray" variant="light" size="xs">
-                                      {notif.channel}
+                                      {notifChannelLabels[notif.channel] ?? notif.channel}
                                     </Badge>
                                   )}
                                 </div>

@@ -27,12 +27,19 @@ export const EditCampagnePage: React.FC = () => {
   }, [id]);
 
   // Vérifier si la campagne peut être modifiée
-  const canEditCampagne = selectedCampagne && 
+  const canEditCampagne = selectedCampagne &&
     [CampagneStatus.DRAFT, CampagneStatus.SCHEDULED].includes(selectedCampagne.status);
 
-  // Si la campagne est chargée mais non modifiable, rediriger vers la page détail
+  // Si la campagne est chargée mais non modifiable, rediriger vers la page détail —
+  // dans un effet, jamais pendant le rendu (React refuse un setState d'un autre
+  // composant, ici RouterProvider, déclenché en plein rendu de celui-ci).
+  useEffect(() => {
+    if (!isLoading && selectedCampagne && !canEditCampagne) {
+      navigate(`/communication/campagnes/${id}`);
+    }
+  }, [isLoading, selectedCampagne, canEditCampagne, id]);
+
   if (!isLoading && selectedCampagne && !canEditCampagne) {
-    navigate(`/communication/campagnes/${id}`);
     return null;
   }
 

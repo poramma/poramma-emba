@@ -12,6 +12,8 @@ import { Modal } from '../../ui/modal';
 import { CampagnePreview } from '../CampagnePreview';
 import { NotifChannel } from '../../../types/communication';
 import { useToast } from '../../../hooks/useToast';
+import { formatDateTime } from '../../../lib/date';
+import { htmlToText } from '../../../lib/campaignHtml';
 
 interface CampagneChannelsStepProps {
   value: {
@@ -19,6 +21,7 @@ interface CampagneChannelsStepProps {
     scheduledAt: string | null;
   };
   onChange: (value: Partial<{ channels: NotifChannel[]; scheduledAt: string | null }>) => void;
+  campagneId?: string;
   campagnePreview: {
     title: string;
     content: string;
@@ -64,6 +67,7 @@ const CHANNEL_CONFIG: Record<NotifChannel, { icon: React.ReactNode; label: strin
 export const CampagneChannelsStep: React.FC<CampagneChannelsStepProps> = ({
   value,
   onChange,
+  campagneId,
   campagnePreview,
   localMediaPreviews,
   onSubmit,
@@ -107,7 +111,10 @@ export const CampagneChannelsStep: React.FC<CampagneChannelsStepProps> = ({
     if (sendMode === 'now') {
       await onSubmit(true);
     } else if (sendMode === 'scheduled' && scheduledDate && scheduledTime) {
-      const scheduledAt = `${scheduledDate}T${scheduledTime}:00Z`;
+      // `${date}T${time}:00Z` traiterait à tort l'heure locale saisie par
+      // l'agent comme si elle était déjà en UTC. `new Date(...)` sans
+      // suffixe la parse comme heure locale ; `.toISOString()` convertit en UTC.
+      const scheduledAt = new Date(`${scheduledDate}T${scheduledTime}:00`).toISOString();
       await onSubmit(false, scheduledAt);
     }
     setShowConfirmModal(false);
@@ -259,7 +266,7 @@ export const CampagneChannelsStep: React.FC<CampagneChannelsStepProps> = ({
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             Aperçu de la campagne
           </p>
-          <CampagnePreview campagne={campagnePreview} localPreviews={localMediaPreviews} />
+          <CampagnePreview campagne={campagnePreview} campagneId={campagneId} localPreviews={localMediaPreviews} />
         </div>
       </div>
 
@@ -314,7 +321,7 @@ export const CampagneChannelsStep: React.FC<CampagneChannelsStepProps> = ({
             <div>
               <p className="text-xs text-gray-500">Mode d'envoi</p>
               <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {sendMode === 'now' ? 'Immédiat' : `Programmé le ${new Date(`${scheduledDate}T${scheduledTime}`).toLocaleString()}`}
+                {sendMode === 'now' ? 'Immédiat' : `Programmé le ${formatDateTime(new Date(`${scheduledDate}T${scheduledTime}`))}`}
               </p>
             </div>
           </div>
@@ -323,7 +330,7 @@ export const CampagneChannelsStep: React.FC<CampagneChannelsStepProps> = ({
           <div className="max-h-48 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <p className="text-xs text-gray-500 mb-2">Aperçu du contenu</p>
             <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap line-clamp-4">
-              {campagnePreview.content}
+              {htmlToText(campagnePreview.content)}
             </div>
           </div>
 

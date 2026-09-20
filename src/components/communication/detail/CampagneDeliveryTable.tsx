@@ -11,7 +11,8 @@ import { Input } from '../../ui/input';
 import { Badge } from '../../ui/badge';
 import { Table, TableHeader, TableRow, TableBody, TableCell } from '../../ui/table';
 import { CampagneDelivery, DeliveryStatus } from '../../../types/communication';
-import { formatDateShort, timeAgo } from '../../../lib/date';
+import { formatDateShort } from '../../../lib/date';
+import { notifChannelLabels } from '../../../config/communication-labels';
 
 interface CampagneDeliveryTableProps {
   deliveries: CampagneDelivery[];
@@ -202,11 +203,10 @@ export const CampagneDeliveryTable: React.FC<CampagneDeliveryTableProps> = ({
                     <div className="font-medium text-gray-900 dark:text-white">
                       {delivery.userName || 'Utilisateur inconnu'}
                     </div>
-                    <div className="text-xs text-gray-400">{delivery.userId}</div>
                   </TableCell>
                   <TableCell>
                     <Badge color="gray" variant="light" size="xs">
-                      {delivery.channel}
+                      {notifChannelLabels[delivery.channel] ?? delivery.channel}
                     </Badge>
                   </TableCell>
                   <TableCell>

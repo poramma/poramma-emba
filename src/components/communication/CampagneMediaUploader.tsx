@@ -1,17 +1,19 @@
 // src/components/communication/CampagneMediaUploader.tsx
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { 
+import {
   Upload, X, Image, Video, File, Star, StarOff,
-  GripVertical, AlertCircle, Download, Loader2
+  GripVertical, AlertCircle, Download, Loader2, GalleryHorizontal
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
-import { CampagneAttachment, CampagneAttachmentType, UploadCampagneMediaPayload } from '../../types/communication';
+import { CampagneAttachment, CampagneAttachmentType, UploadCampagneMediaPayload, MAX_BANNER_ITEMS } from '../../types/communication';
 import { StoredFile } from '../../types/document';
 import { formatFileSize } from '../../lib/date';
 import { getPreviewKey, resolveMediaSrc } from '../../lib/media';
+import { useAuthenticatedMedia } from '../../hooks/useAuthenticatedMedia';
+import { api } from '../../lib/api';
 
 interface CampagneMediaUploaderProps {
   campagneId: string;
@@ -21,6 +23,8 @@ interface CampagneMediaUploaderProps {
   onSetCover: (attachmentId: string) => void;
   onRemove: (attachmentId: string) => Promise<void>;
   onReorder: (orderedIds: string[]) => Promise<void>;
+  /** Ajoute / retire un média du carrousel « bannière ». */
+  onToggleBanner?: (attachmentId: string, isBanner: boolean) => Promise<void>;
   uploadProgress?: number;
   isLoading?: boolean;
   /**
@@ -43,6 +47,12 @@ const ACCEPTED_TYPES = {
   [CampagneAttachmentType.DOCUMENT]: ['application/pdf'],
 };
 
+/** Extrait en sous-composant pour pouvoir appeler le hook (règle des hooks — `getThumbnail` est invoqué dans une boucle .map()). */
+const AttachmentThumbnail: React.FC<{ src: string | undefined; alt: string }> = ({ src, alt }) => {
+  const resolvedSrc = useAuthenticatedMedia(src);
+  return <img src={resolvedSrc} alt={alt} className="w-full h-full object-cover" />;
+};
+
 export const CampagneMediaUploader: React.FC<CampagneMediaUploaderProps> = ({
   campagneId,
   attachments,
@@ -51,11 +61,15 @@ export const CampagneMediaUploader: React.FC<CampagneMediaUploaderProps> = ({
   onSetCover,
   onRemove,
   onReorder,
+  onToggleBanner,
   uploadProgress = 0,
   isLoading = false,
   onLocalPreviewsChange,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
+  // Les images / vidéos importées à partir de maintenant rejoignent directement le carrousel bannière.
+  const [addToBanner, setAddToBanner] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, number>>({});
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -135,22 +149,32 @@ export const CampagneMediaUploader: React.FC<CampagneMediaUploaderProps> = ({
       return true;
     });
 
+    let bannerCount = attachments.filter(a => a.isBanner).length;
+    let bannerFull = false;
+
     for (const file of validFiles) {
       const type = getAttachmentType(file);
       if (!type) continue;
 
       // Aperçu local immédiat, avant même la fin de l'upload — visible tout
       // de suite dans la galerie ET réutilisable ensuite dans CampagnePreview
-      if (type === CampagneAttachmentType.IMAGE) {
+      // (les vidéos aussi : l'URL locale ne copie pas le fichier en mémoire).
+      if (type === CampagneAttachmentType.IMAGE || type === CampagneAttachmentType.VIDEO) {
         const key = getPreviewKey(file.name, file.size);
         const objectUrl = URL.createObjectURL(file);
         setPreviewUrls(prev => ({ ...prev, [key]: objectUrl }));
       }
 
+      // Bannière : images et vidéos seulement, dans la limite du carrousel.
+      const wantsBanner = addToBanner && type !== CampagneAttachmentType.DOCUMENT;
+      const asBanner = wantsBanner && bannerCount < MAX_BANNER_ITEMS;
+      if (wantsBanner && !asBanner) bannerFull = true;
+      if (asBanner) bannerCount += 1;
+
       setUploadingFiles(prev => ({ ...prev, [file.name]: 0 }));
 
       try {
-        await onUpload({ file, type });
+        await onUpload({ file, type, isBanner: asBanner });
         setUploadingFiles(prev => {
           const newState = { ...prev };
           delete newState[file.name];
@@ -164,6 +188,26 @@ export const CampagneMediaUploader: React.FC<CampagneMediaUploaderProps> = ({
           return newState;
         });
       }
+    }
+
+    if (bannerFull) setError(`Le carrousel bannière est limité à ${MAX_BANNER_ITEMS} médias : les suivants ont été ajoutés sans bannière.`);
+  };
+
+  const handleToggleBanner = async (attachment: CampagneAttachment) => {
+    if (!onToggleBanner) return;
+    const next = !attachment.isBanner;
+    if (next && attachments.filter(a => a.isBanner).length >= MAX_BANNER_ITEMS) {
+      setError(`Le carrousel bannière est limité à ${MAX_BANNER_ITEMS} médias.`);
+      return;
+    }
+    setError(null);
+    setTogglingId(attachment.id);
+    try {
+      await onToggleBanner(attachment.id, next);
+    } catch {
+      setError('Impossible de modifier la bannière pour le moment.');
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -185,6 +229,21 @@ export const CampagneMediaUploader: React.FC<CampagneMediaUploaderProps> = ({
     setIsDragging(false);
   }, []);
 
+  const handleDownload = async (attachment: CampagneAttachment) => {
+    // Route inexistante auparavant (`/api/campagnes/.../download`) et de
+    // toute façon window.open() ne porte pas l'en-tête Authorization requis
+    // par l'API — on passe par un fetch authentifié puis un lien blob.
+    const { data } = await api.get(`/communication/campagnes/${campagneId}/files/${attachment.file.id}`, {
+      responseType: 'blob',
+    });
+    const url = URL.createObjectURL(data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = attachment.file.originalName;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleRemove = async (attachmentId: string) => {
     setRemovingId(attachmentId);
     try {
@@ -204,10 +263,9 @@ export const CampagneMediaUploader: React.FC<CampagneMediaUploaderProps> = ({
   const getThumbnail = (attachment: CampagneAttachment) => {
     if (attachment.type === CampagneAttachmentType.IMAGE) {
       return (
-        <img 
-          src={resolveMediaSrc(attachment.file, previewUrls)}
+        <AttachmentThumbnail
+          src={resolveMediaSrc(campagneId, attachment.file, previewUrls)}
           alt={attachment.file.originalName}
-          className="w-full h-full object-cover"
         />
       );
     }
@@ -275,6 +333,14 @@ export const CampagneMediaUploader: React.FC<CampagneMediaUploaderProps> = ({
           Limite: {MAX_ATTACHMENTS} fichiers par campagne ({attachments.length} utilisé{attachments.length > 1 ? 's' : ''})
         </p>
 
+        {onToggleBanner && (
+          <label className="mx-auto mt-4 flex w-fit cursor-pointer items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+            <input type="checkbox" checked={addToBanner} onChange={(e) => setAddToBanner(e.target.checked)} />
+            <GalleryHorizontal className="h-4 w-4 text-brand-500" />
+            Afficher les images et vidéos importées dans la bannière
+          </label>
+        )}
+
         {error && (
           <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-red-700 dark:text-red-300 text-sm flex items-center gap-2">
             <AlertCircle className="w-4 h-4" />
@@ -331,10 +397,10 @@ export const CampagneMediaUploader: React.FC<CampagneMediaUploaderProps> = ({
 
                 {/* Badge de couverture */}
                 {isCoverImage(attachment) && (
-                  <Badge 
-                    color="primary" 
-                    variant="solid" 
-                    size="xs" 
+                  <Badge
+                    color="primary"
+                    variant="solid"
+                    size="xs"
                     className="absolute top-2 left-2"
                   >
                     <Star className="w-3 h-3 mr-1" />
@@ -362,7 +428,7 @@ export const CampagneMediaUploader: React.FC<CampagneMediaUploaderProps> = ({
                     size="xs"
                     variant="outline"
                     className="text-white border-white hover:bg-white/20"
-                    onClick={() => window.open(`/api/campagnes/${campagneId}/attachments/${attachment.id}/download`)}
+                    onClick={() => handleDownload(attachment)}
                   >
                     <Download className="w-4 h-4" />
                   </Button>
@@ -385,6 +451,26 @@ export const CampagneMediaUploader: React.FC<CampagneMediaUploaderProps> = ({
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab">
                   <GripVertical className="w-4 h-4 text-white drop-shadow-md" />
                 </div>
+
+                {/* Bannière : simple case à cocher, à côté du média (images et vidéos) */}
+                {onToggleBanner && attachment.type !== CampagneAttachmentType.DOCUMENT && (
+                  <label
+                    className="flex cursor-pointer items-center gap-2 border-t border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {togglingId === attachment.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                    ) : (
+                      <input
+                        type="checkbox"
+                        checked={attachment.isBanner}
+                        onChange={() => handleToggleBanner(attachment)}
+                        className="h-4 w-4 rounded border-gray-300 accent-brand-600"
+                      />
+                    )}
+                    <span>Bannière</span>
+                  </label>
+                )}
 
                 {/* Légende */}
                 {attachment.caption && (

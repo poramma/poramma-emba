@@ -7,20 +7,31 @@ import {
 import { Card } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Progress } from '../../ui/progress';
-import { CampagneStats, CampagneStatus } from '../../../types/communication';
+import { CampagneInteractions, CampagneStats, CampagneStatus } from '../../../types/communication';
 import { useCommunication } from '../../../hooks/useCommunication';
 
 interface CampagneStatsPanelProps {
   stats: CampagneStats;
   status: CampagneStatus;
   campagneId?: string;
+  interactions?: CampagneInteractions;
+  /** Pièces jointes de la campagne — pour nommer les médias dans « clics par média ». */
+  attachments?: { id: string; caption?: string | null; file?: { originalName?: string } | null }[];
 }
 
 export const CampagneStatsPanel: React.FC<CampagneStatsPanelProps> = ({
   stats,
   status,
   campagneId,
+  interactions,
+  attachments = [],
 }) => {
+  const targetLabel = (targetId: string) => {
+    if (targetId.startsWith('link:')) return `Lien : ${targetId.slice(5)}`;
+    const att = attachments.find((a) => a.id === targetId);
+    return att?.caption || att?.file?.originalName || 'Média';
+  };
+
   const { fetchDeliveries, deliveries } = useCommunication();
   const [progress, setProgress] = useState(0);
 
@@ -258,6 +269,53 @@ export const CampagneStatsPanel: React.FC<CampagneStatsPanelProps> = ({
             </div>
           </div>
         </Card>
+
+        {/* Interactions des citoyens (portail communautaire) */}
+        {interactions && (
+          <Card className="p-4">
+            <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+              Interactions des citoyens
+            </h5>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{interactions.views}</div>
+                <div className="text-sm text-gray-500">
+                  Vues ({interactions.uniqueViewers} personne{interactions.uniqueViewers > 1 ? 's' : ''})
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">{interactions.clicks}</div>
+                <div className="text-sm text-gray-500">
+                  Clics ({interactions.uniqueClickers} personne{interactions.uniqueClickers > 1 ? 's' : ''})
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-500">{interactions.likes}</div>
+                <div className="text-sm text-gray-500">J'aime</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">{interactions.participants}</div>
+                <div className="text-sm text-gray-500">Participations</div>
+              </div>
+            </div>
+
+            {interactions.clicksByTarget.length > 0 && (
+              <div className="mt-5 border-t border-gray-100 dark:border-gray-700 pt-4">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Clics par média ou lien</p>
+                <ul className="space-y-1">
+                  {[...interactions.clicksByTarget]
+                    .sort((a, b) => b.count - a.count)
+                    .map((c) => (
+                      <li key={c.targetId} className="flex justify-between gap-3 text-sm">
+                        <span className="truncate text-gray-600 dark:text-gray-300">{targetLabel(c.targetId)}</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{c.count}</span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
+          </Card>
+        )}
       </div>
     );
   }

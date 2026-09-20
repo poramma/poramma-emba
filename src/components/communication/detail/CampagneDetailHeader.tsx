@@ -74,10 +74,10 @@ export const CampagneDetailHeader: React.FC<CampagneDetailHeaderProps> = ({
               <Copy className="w-4 h-4 mr-2" />
               Dupliquer
             </Button>
-            {campagne.stats?.errorMessage && (
+            {campagne.stats?.failed > 0 && (
               <Badge color="error" variant="light" className="ml-2">
                 <AlertCircle className="w-3 h-3 mr-1" />
-                {campagne.stats.errorMessage}
+                {campagne.stats.failed} échec{campagne.stats.failed > 1 ? 's' : ''}
               </Badge>
             )}
           </>
@@ -125,7 +125,9 @@ export const CampagneDetailHeader: React.FC<CampagneDetailHeaderProps> = ({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1">
               <User className="w-4 h-4" />
-              {campagne.sentBy || 'Créateur inconnu'}
+              {campagne.sentByUser?.profile
+                ? [campagne.sentByUser.profile.firstName, campagne.sentByUser.profile.lastName].filter(Boolean).join(' ')
+                : 'Créateur inconnu'}
             </span>
             <span>•</span>
             <span className="flex items-center gap-1">

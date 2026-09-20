@@ -14,22 +14,25 @@ export function getPreviewKey(name: string, size: number): string {
  * Détermine la source d'affichage d'un média, dans cet ordre de priorité :
  *
  * 1. Aperçu local (fichier tout juste sélectionné/uploadé pendant la
- *    création de la campagne, avant tout backend réel) — prioritaire car
- *    c'est la version la plus à jour et la seule disponible avant envoi
- * 2. Chemin stocké (StoredFile.path) — correspond aux fichiers de démo
- *    placés directement dans /public (ex: mock data de communicationStore.ts),
- *    servis à la racine par le serveur de dev/prod
- *
- * Exemple: { path: 'campagnes/2026/07/cover.jpg' } → '/campagnes/2026/07/cover.jpg'
+ *    création de la campagne, avant tout backend réel) — une URL `blob:`,
+ *    affichable directement dans un <img>, prioritaire car c'est la version
+ *    la plus à jour.
+ * 2. Route API authentifiée `/communication/campagnes/:id/files/:fileId` —
+ *    MinIO n'est joignable que depuis le réseau Docker (voir
+ *    packages/storage), le navigateur ne peut donc pas charger `file.path`
+ *    directement ; le chemin retourné ici doit passer par
+ *    useAuthenticatedMedia() pour être transformé en blob affichable.
  */
 export function resolveMediaSrc(
-  file: { path: string; originalName: string; size: number },
+  campagneId: string | undefined,
+  file: { id: string; path: string; originalName: string; size: number },
   localPreviews?: Record<string, string>
-): string {
+): string | undefined {
   if (localPreviews) {
     const key = getPreviewKey(file.originalName, file.size);
     const localUrl = localPreviews[key];
     if (localUrl) return localUrl;
   }
-  return `/${file.path}`;
+  if (!campagneId) return undefined;
+  return `/communication/campagnes/${campagneId}/files/${file.id}`;
 }

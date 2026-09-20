@@ -147,8 +147,17 @@ export const CampagneWizard: React.FC<CampagneWizardProps> = ({
    * Retourne l'id de la campagne (existante ou nouvellement créée), ou
    * undefined si la création a échoué — auquel cas la navigation vers
    * l'étape suivante doit être annulée.
+   *
+   * CORRECTIF — la toute première création passe de NewCampagnePage à
+   * EditCampagnePage (deux composants de route différents), ce qui démonte
+   * et remonte CampagneWizard : tout setCurrentStep() appelé APRÈS ce
+   * navigate() sur l'ancienne instance est perdu (l'utilisateur devait
+   * cliquer "Suivant" une seconde fois pour atteindre l'étape Médias).
+   * `targetStep` permet à l'appelant d'indiquer directement l'étape visée
+   * dans l'URL, pour que la nouvelle instance s'y initialise dès son
+   * montage au lieu de rouvrir l'étape Contenu.
    */
-  const ensureDraftExists = async (): Promise<string | undefined> => {
+  const ensureDraftExists = async (targetStep: Step = currentStep): Promise<string | undefined> => {
     if (localCampagneId) return localCampagneId;
 
     setIsSaving(true);
@@ -157,7 +166,7 @@ export const CampagneWizard: React.FC<CampagneWizardProps> = ({
       setLocalCampagneId(result.id);
       setLastSaved(new Date());
       setHasChanges(false);
-      navigate(`/communication/campagnes/${result.id}/edit?step=content`, { replace: true });
+      navigate(`/communication/campagnes/${result.id}/edit?step=${targetStep}`, { replace: true });
       return result.id;
     } catch (error) {
       toast({
@@ -211,7 +220,7 @@ export const CampagneWizard: React.FC<CampagneWizardProps> = ({
 
       // CORRECTIF — on ne quitte l'étape Contenu qu'une fois le brouillon
       // effectivement créé, pour que l'étape Médias reçoive un campagneId valide
-      const id = await ensureDraftExists();
+      const id = await ensureDraftExists('media');
       if (!id) return;
     }
 
@@ -440,6 +449,7 @@ export const CampagneWizard: React.FC<CampagneWizardProps> = ({
               setFormData(prev => ({ ...prev, ...value }));
               setHasChanges(true);
             }}
+            campagneId={localCampagneId}
             campagnePreview={{
               title: formData.title || '',
               content: formData.content || '',

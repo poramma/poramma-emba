@@ -4,18 +4,22 @@ import React, { useState } from 'react';
 import { 
   Video, File, Maximize2
 } from 'lucide-react';
-import DOMPurify from 'dompurify';
-import { marked } from 'marked'; // npm install marked (si pas déjà présent)
+import { toEditorHtml } from '../../lib/campaignHtml';
+import '../ui/rich-text/rich-content.css';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { CampagneAttachmentType } from '../../types/communication';
 import { Campagne } from '../../types/communication';
 import { CampagneTypeBadge } from './CampagneTypeBadge';
+import { BannerCarousel } from './BannerCarousel';
 import { formatDateShort } from '../../lib/date';
 import { resolveMediaSrc } from '../../lib/media';
+import { useAuthenticatedMedia } from '../../hooks/useAuthenticatedMedia';
 
 interface CampagnePreviewProps {
   campagne: Pick<Campagne, 'title' | 'content' | 'type' | 'coverImage' | 'attachments'>;
+  /** Requis pour charger les médias déjà enregistrés côté backend (voir lib/media.ts). Absent tant que la campagne n'a pas encore été créée dans l'assistant. */
+  campagneId?: string;
   showDate?: boolean;
   createdAt?: string;
   /**
@@ -30,6 +34,7 @@ interface CampagnePreviewProps {
 
 export const CampagnePreview: React.FC<CampagnePreviewProps> = ({
   campagne,
+  campagneId,
   showDate = false,
   createdAt,
   localPreviews,
@@ -37,18 +42,27 @@ export const CampagnePreview: React.FC<CampagnePreviewProps> = ({
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const images = campagne.attachments?.filter(a => a.type === CampagneAttachmentType.IMAGE) || [];
-  const videos = campagne.attachments?.filter(a => a.type === CampagneAttachmentType.VIDEO) || [];
-  const documents = campagne.attachments?.filter(a => a.type === CampagneAttachmentType.DOCUMENT) || [];
+  // Les médias marqués « bannière » défilent entre le titre et le contenu ; les autres restent en galerie sous le texte.
+  const banner = campagne.attachments?.filter(a => a.isBanner && a.type !== CampagneAttachmentType.DOCUMENT) || [];
+  const gallery = campagne.attachments?.filter(a => !banner.includes(a)) || [];
+  const images = gallery.filter(a => a.type === CampagneAttachmentType.IMAGE);
+  const videos = gallery.filter(a => a.type === CampagneAttachmentType.VIDEO);
+  const documents = gallery.filter(a => a.type === CampagneAttachmentType.DOCUMENT);
 
   const hasMedia = images.length > 0 || videos.length > 0;
 
-  // Le contenu est rédigé en Markdown (cf. CampagneContentStep) — on le
-  // convertit en HTML puis on sanitize AVANT de l'injecter, jamais l'inverse
-  // (sanitizer du HTML déjà généré depuis du Markdown de confiance ne protège
-  // pas contre du Markdown contenant des balises HTML brutes malveillantes).
-  const htmlFromMarkdown = marked.parse(campagne.content || '', { async: false }) as string;
-  const sanitizedContent = DOMPurify.sanitize(htmlFromMarkdown);
+  const coverImageSrc = useAuthenticatedMedia(
+    campagne.coverImage ? resolveMediaSrc(campagneId, campagne.coverImage, localPreviews) : undefined
+  );
+  const currentImage = images[currentSlide];
+  const currentImageSrc = useAuthenticatedMedia(
+    currentImage ? resolveMediaSrc(campagneId, currentImage.file, localPreviews) : undefined
+  );
+
+  // Le contenu est du HTML mis en forme par l'éditeur visuel (cf. CampagneContentStep) ; les
+  // anciennes campagnes en Markdown / texte brut sont converties. Dans tous les cas le HTML
+  // passe par la liste blanche stricte AVANT d'être injecté.
+  const sanitizedContent = toEditorHtml(campagne.content);
 
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-lg max-w-[400px] mx-auto ${
@@ -74,11 +88,11 @@ export const CampagnePreview: React.FC<CampagnePreviewProps> = ({
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Image de couverture */}
-        {campagne.coverImage && (
+        {/* Image de couverture (remplacée par la bannière quand il y en a une) */}
+        {campagne.coverImage && banner.length === 0 && (
           <div className="rounded-lg overflow-hidden">
-            <img 
-              src={resolveMediaSrc(campagne.coverImage, localPreviews)}
+            <img
+              src={coverImageSrc}
               alt={campagne.title}
               className="w-full h-48 object-cover"
             />
@@ -95,9 +109,12 @@ export const CampagnePreview: React.FC<CampagnePreviewProps> = ({
           {campagne.title}
         </h3>
 
-        {/* Contenu — Markdown converti en HTML puis sanitizé */}
-        <div 
-          className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
+        {/* Bannière : carrousel d'images et/ou de vidéos, entre le titre et le contenu */}
+        <BannerCarousel campagneId={campagneId} items={banner} localPreviews={localPreviews} />
+
+        {/* Contenu — HTML mis en forme par l'éditeur, nettoyé (liste blanche) */}
+        <div
+          className="rich-content text-gray-700 dark:text-gray-300"
           dangerouslySetInnerHTML={{ __html: sanitizedContent }}
         />
 
@@ -110,9 +127,9 @@ export const CampagnePreview: React.FC<CampagnePreviewProps> = ({
             {images.length > 0 && (
               <div className="relative">
                 <div className="aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-                  <img 
-                    src={resolveMediaSrc(images[currentSlide].file, localPreviews)}
-                    alt={images[currentSlide]?.caption || ''}
+                  <img
+                    src={currentImageSrc}
+                    alt={currentImage?.caption || ''}
                     className="w-full h-full object-contain"
                   />
                 </div>

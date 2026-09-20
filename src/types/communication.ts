@@ -12,7 +12,7 @@
  * image de couverture, estimation de destinataires en temps réel.
  */
 
-import { StoredFile } from './document';
+import { StoredFile, DocumentUserSummary } from './document';
 
 /**
  * CAMPAGNE DE COMMUNICATION (Campagne dans le diagramme)
@@ -37,7 +37,9 @@ export interface Campagne {
   sentAt: string | null;
   status: CampagneStatus;
   sentBy: string;
+  sentByUser?: DocumentUserSummary | null;
   stats: CampagneStats;
+  interactions?: CampagneInteractions;
   createdAt: string;
 }
 
@@ -66,6 +68,22 @@ export interface CampagneFilters {
   hasBourse?: boolean;
   universities?: string[];
   userIds?: string[];
+}
+
+/**
+ * Interactions des citoyens avec l'annonce (agrégats anonymes) — alimentées par
+ * frontend-community via communaute-api : vues, clics (par média/lien), « j'aime »
+ * et participations (événements).
+ */
+export interface CampagneInteractions {
+  views: number;
+  uniqueViewers: number;
+  clicks: number;
+  uniqueClickers: number;
+  likes: number;
+  participants: number;
+  /** `targetId` = id d'une pièce jointe, ou « link:<url> » pour un lien du texte. */
+  clicksByTarget: { targetId: string; count: number }[];
 }
 
 export interface CampagneStats {
@@ -103,6 +121,8 @@ export interface CampagneAttachment {
   type: CampagneAttachmentType;
   order: number;             // Ordre d'affichage dans la galerie
   caption: string | null;
+  /** Affiché dans le carrousel « bannière », entre le titre et le contenu (image ou vidéo uniquement). */
+  isBanner: boolean;
   createdAt: string;
 }
 
@@ -115,7 +135,12 @@ export interface UploadCampagneMediaPayload {
   file: File;
   type: CampagneAttachmentType;
   caption?: string;
+  /** Ajoute directement le média au carrousel « bannière ». */
+  isBanner?: boolean;
 }
+
+/** Nombre maximum de médias dans le carrousel bannière (miroir du plafond serveur). */
+export const MAX_BANNER_ITEMS = 8;
 
 /**
  * NOUVEAU — ESTIMATION DE DESTINATAIRES (ciblage en temps réel)

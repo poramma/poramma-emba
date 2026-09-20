@@ -5,7 +5,7 @@ import { Image as ImageIcon, Video, File, Info } from 'lucide-react';
 import { Card } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { CampagneMediaUploader } from '../CampagneMediaUploader';
-import { CampagneAttachment } from '../../../types/communication';
+import { CampagneAttachment, MAX_BANNER_ITEMS } from '../../../types/communication';
 import { StoredFile } from '../../../types/document';
 import { useCommunication } from '../../../hooks/useCommunication';
 
@@ -28,6 +28,7 @@ export const CampagneMediaStep: React.FC<CampagneMediaStepProps> = ({
     uploadCampagneMedia,
     removeCampagneAttachment,
     reorderCampagneAttachments,
+    updateCampagneAttachment,
     setCoverImage,
     attachmentUploadProgress,
     isLoading,
@@ -47,6 +48,13 @@ export const CampagneMediaStep: React.FC<CampagneMediaStepProps> = ({
     await reorderCampagneAttachments(campagneId, orderedIds);
     onAttachmentsChange();
   };
+
+  const handleToggleBanner = async (attachmentId: string, isBanner: boolean) => {
+    await updateCampagneAttachment(campagneId, attachmentId, { isBanner });
+    onAttachmentsChange();
+  };
+
+  const bannerCount = attachments.filter((a) => a.isBanner).length;
 
   const handleSetCover = (attachmentId: string) => {
     setCoverImage(campagneId, attachmentId);
@@ -77,6 +85,7 @@ export const CampagneMediaStep: React.FC<CampagneMediaStepProps> = ({
             onSetCover={handleSetCover}
             onRemove={handleRemove}
             onReorder={handleReorder}
+            onToggleBanner={handleToggleBanner}
             uploadProgress={attachmentUploadProgress}
             isLoading={isLoading}
             onLocalPreviewsChange={onLocalPreviewsChange}
@@ -102,6 +111,18 @@ export const CampagneMediaStep: React.FC<CampagneMediaStepProps> = ({
                 <span>Documents: PDF (max 15 Mo)</span>
               </div>
             </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Bannière (carrousel)</p>
+              <Badge color={bannerCount > 0 ? 'success' : 'gray'} variant="light">
+                {bannerCount}/{MAX_BANNER_ITEMS}
+              </Badge>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Les images et vidéos marquées « Bannière » défilent en carrousel sous le titre de l'annonce, avant le texte. Les autres médias restent affichés sous le contenu.
+            </p>
           </Card>
 
           <Card className="p-4">
