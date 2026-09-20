@@ -106,13 +106,7 @@ export const CalendrierMois: React.FC<CalendrierMoisProps> = ({
 
   // Fonction pour récupérer les détails d'un jour
   const getDayDetails = (dayDate: string): DayDetail => {
-    const rdvs = rendezVous.filter(rdv => {
-      // Utiliser le slot si disponible, sinon createdAt
-      if (rdv.slot) {
-        return rdv.slot.date === dayDate;
-      }
-      return rdv.createdAt.split('T')[0] === dayDate;
-    });
+    const rdvs = rendezVous.filter(rdv => rdv.date === dayDate);
 
     const stats = {
       total: rdvs.length,
@@ -133,12 +127,7 @@ export const CalendrierMois: React.FC<CalendrierMoisProps> = ({
   };
 
   const getRdvCountForDay = (dayDate: string) => {
-    return rendezVous.filter(rdv => {
-      if (rdv.slot) {
-        return rdv.slot.date === dayDate;
-      }
-      return rdv.createdAt.split('T')[0] === dayDate;
-    });
+    return rendezVous.filter(rdv => rdv.date === dayDate);
   };
 
   const getStatusSummary = (rdvs: typeof rendezVous) => {

@@ -1,6 +1,6 @@
 // src/pages/rendez-vous/DisponibilitesPage.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Clock, Plus, Trash2, Edit,  AlertCircle, ArrowLeft, Settings
 } from 'lucide-react';
@@ -12,10 +12,26 @@ import { Badge } from '../../components/ui/badge';
 import { Modal } from '../../components/ui/modal';
 import { useAuth } from '../../hooks/useAuth';
 import { usePermission } from '../../hooks/usePermission';
-import { formatTime } from '../../lib/date';
+import { formatTime, formatDateShort } from '../../lib/date';
 import { useNavigate } from 'react-router-dom';
 import PermissionGuard from '../../components/auth/PermissionGuard';
 import { PermissionCode, RoleName } from '../../types/auth';
+import { api } from '../../lib/api';
+import { useAgentProfile } from '../../hooks/useAgentProfile';
+import { useAgentsStore } from '../../store/agentsStore';
+
+function todayISO(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+function errorMessage(error: unknown): string {
+  // ApiValidationError.message porte déjà le message serveur lisible (voir
+  // lib/api.ts) ; .details ne contient que des tags internes courts
+  // ("duplicate", "must be present or future") destinés au code, pas à
+  // l'affichage.
+  if (error instanceof Error) return error.message;
+  return "Une erreur est survenue.";
+}
 
 interface Disponibilite {
   id: string;
@@ -55,6 +71,8 @@ const exceptionTypes = [
   { value: 'OTHER', label: 'Autre' },
 ];
 
+const exceptionLabel = (type: string) => exceptionTypes.find((t) => t.value === type)?.label ?? type;
+
 export const DisponibilitesPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -66,15 +84,24 @@ export const DisponibilitesPage: React.FC = () => {
     role.role.name === RoleName.ADMIN || role.role.name === RoleName.AMBASSADOR
   );
   
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedAgent, setSelectedAgent] = useState(user?.id || '');
+  const { profileData, fetchProfile } = useAgentProfile();
+  const { agents, fetchAgents } = useAgentsStore();
 
-  // Force selectedAgent to current user if not admin/ambassador
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState('');
+
   useEffect(() => {
-    if (!canManageOthers && user?.id) {
-      setSelectedAgent(user.id);
+    if (!profileData) fetchProfile();
+    if (canManageOthers && agents.length === 0) fetchAgents();
+  }, []);
+
+  // Un agent qui ne peut gérer que lui-même est verrouillé sur SON PROPRE
+  // agent.id (distinct de user.id — voir agent_availabilities.agent_id).
+  useEffect(() => {
+    if (!canManageOthers && profileData?.agent?.id) {
+      setSelectedAgent(profileData.agent.id);
     }
-  }, [canManageOthers, user?.id]);
+  }, [canManageOthers, profileData?.agent?.id]);
   const [disponibilites, setDisponibilites] = useState<Disponibilite[]>([]);
   const [exceptions, setExceptions] = useState<Exception[]>([]);
   const [editingSlot, setEditingSlot] = useState<Disponibilite | null>(null);
@@ -82,62 +109,59 @@ export const DisponibilitesPage: React.FC = () => {
   const [showSlotModal, setShowSlotModal] = useState(false);
   const [showExceptionModal, setShowExceptionModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [slotError, setSlotError] = useState('');
+  const [exceptionError, setExceptionError] = useState('');
+  const [notice, setNotice] = useState('');
 
-  // Charger les disponibilités
+  // Les disponibilités se rechargent d'elles-mêmes dès que l'agent ou la date de
+  // Configuration change : ce qui est affiché correspond toujours à cette date.
+  const requestSeq = useRef(0);
   useEffect(() => {
-    if (selectedAgent) {
+    if (selectedAgent && selectedDate) {
       loadDisponibilites();
     }
-  }, [selectedAgent]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAgent, selectedDate]);
 
   const loadDisponibilites = async () => {
+    if (!selectedAgent || !selectedDate) return;
+    const seq = ++requestSeq.current;
     setIsLoading(true);
     try {
-      // TODO: Appel API
-      // const response = await api.get(`/agents/${selectedAgent}/availabilities`);
-      // setDisponibilites(response.data);
-      
-      // Mock
-      setDisponibilites([
-        { id: '1', dayOfWeek: 1, startTime: '09:00', endTime: '12:00', isAvailable: true },
-        { id: '2', dayOfWeek: 1, startTime: '14:00', endTime: '17:00', isAvailable: true },
-        { id: '3', dayOfWeek: 2, startTime: '09:00', endTime: '12:00', isAvailable: true },
-        { id: '4', dayOfWeek: 2, startTime: '14:00', endTime: '17:00', isAvailable: false },
-        { id: '5', dayOfWeek: 3, startTime: '09:00', endTime: '12:00', isAvailable: true },
-        { id: '6', dayOfWeek: 3, startTime: '14:00', endTime: '17:00', isAvailable: true },
-        { id: '7', dayOfWeek: 4, startTime: '09:00', endTime: '12:00', isAvailable: true },
-        { id: '8', dayOfWeek: 4, startTime: '14:00', endTime: '17:00', isAvailable: true },
-        { id: '9', dayOfWeek: 5, startTime: '09:00', endTime: '12:00', isAvailable: true },
-        { id: '10', dayOfWeek: 5, startTime: '14:00', endTime: '15:00', isAvailable: true },
+      // `date` ne garde de l'horaire hebdomadaire que les versions effectives ce
+      // jour-là (validFrom/validUntil) ; les exceptions chargées sont celles à
+      // partir de cette date (celle du jour est mise en avant).
+      const [{ data: avail }, { data: exc }] = await Promise.all([
+        api.get(`/agents/${selectedAgent}/availabilities`, { params: { date: selectedDate } }),
+        api.get(`/agents/${selectedAgent}/exceptions`, { params: { from: selectedDate } }),
       ]);
-      setExceptions([
-        {
-          id: '1',
-          date: '2025-07-10',
-          type: 'ABSENCE',
-          reason: 'Congé annuel',
-          isFullDay: true,
-        },
-      ]);
+      if (seq !== requestSeq.current) return; // une réponse plus récente a pris le relais
+      setDisponibilites(avail.data);
+      setExceptions(exc.data);
     } catch (error) {
       console.error('Erreur:', error);
     } finally {
-      setIsLoading(false);
+      if (seq === requestSeq.current) setIsLoading(false);
     }
   };
 
   const handleAddSlot = () => {
+    setSlotError('');
     setEditingSlot({
       id: `new-${Date.now()}`,
       dayOfWeek: 1,
       startTime: '09:00',
       endTime: '12:00',
       isAvailable: true,
+      // Valable à partir de la date de Configuration (le créneau ne s'applique pas avant).
+      validFrom: selectedDate,
+      validUntil: null,
     });
     setShowSlotModal(true);
   };
 
   const handleEditSlot = (slot: Disponibilite) => {
+    setSlotError('');
     setEditingSlot({ ...slot });
     setShowSlotModal(true);
   };
@@ -146,19 +170,22 @@ export const DisponibilitesPage: React.FC = () => {
     if (!editingSlot) return;
 
     setIsLoading(true);
+    setSlotError('');
     try {
-      // TODO: Appel API
-      if (editingSlot.id.startsWith('new-')) {
-        setDisponibilites(prev => [...prev, { ...editingSlot, id: `slot-${Date.now()}` }]);
+      const { id, ...payload } = editingSlot;
+      if (id.startsWith('new-')) {
+        const { data } = await api.post(`/agents/${selectedAgent}/availabilities`, payload);
+        setDisponibilites(prev => [...prev, data.data]);
+        if (data.data.warning) setNotice(data.data.warning);
       } else {
-        setDisponibilites(prev => prev.map(s => 
-          s.id === editingSlot.id ? editingSlot : s
-        ));
+        const { data } = await api.put(`/agents/${selectedAgent}/availabilities/${id}`, payload);
+        setDisponibilites(prev => prev.map(s => (s.id === id ? data.data : s)));
+        if (data.data.warning) setNotice(data.data.warning);
       }
       setShowSlotModal(false);
       setEditingSlot(null);
     } catch (error) {
-      console.error('Erreur:', error);
+      setSlotError(errorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -169,6 +196,7 @@ export const DisponibilitesPage: React.FC = () => {
 
     setIsLoading(true);
     try {
+      await api.delete(`/agents/${selectedAgent}/availabilities/${slotId}`);
       setDisponibilites(prev => prev.filter(s => s.id !== slotId));
     } catch (error) {
       console.error('Erreur:', error);
@@ -178,9 +206,12 @@ export const DisponibilitesPage: React.FC = () => {
   };
 
   const handleAddException = () => {
+    setExceptionError('');
     setEditingException({
       id: `new-${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
+      // Préremplit avec la date affichée en Configuration (jamais dans le
+      // passé — le champ Date a un `min` sur aujourd'hui côté modal).
+      date: selectedDate < todayISO() ? todayISO() : selectedDate,
       type: 'OTHER',
       reason: '',
       isFullDay: true,
@@ -192,12 +223,16 @@ export const DisponibilitesPage: React.FC = () => {
     if (!editingException) return;
 
     setIsLoading(true);
+    setExceptionError('');
     try {
-      setExceptions(prev => [...prev, { ...editingException, id: `exc-${Date.now()}` }]);
+      const { id, ...payload } = editingException;
+      const { data } = await api.post(`/agents/${selectedAgent}/exceptions`, payload);
+      setExceptions(prev => [...prev, data.data]);
+      if (data.data.warning) setNotice(data.data.warning);
       setShowExceptionModal(false);
       setEditingException(null);
     } catch (error) {
-      console.error('Erreur:', error);
+      setExceptionError(errorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -208,12 +243,30 @@ export const DisponibilitesPage: React.FC = () => {
 
     setIsLoading(true);
     try {
+      await api.delete(`/agents/${selectedAgent}/exceptions/${exceptionId}`);
       setExceptions(prev => prev.filter(e => e.id !== exceptionId));
     } catch (error) {
       console.error('Erreur:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Résumé du jour de Configuration : jour de la semaine, créneaux effectifs, exception éventuelle.
+  const dayOfWeek = (() => {
+    const d = new Date(`${selectedDate}T00:00:00`).getDay(); // 0 = dimanche
+    return d === 0 ? 7 : d;
+  })();
+  const dayLabel = days.find((d) => d.value === dayOfWeek)?.label ?? '';
+  const effectiveSlots = disponibilites
+    .filter((s) => s.dayOfWeek === dayOfWeek && s.isAvailable)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const exceptionOfDay = exceptions.find((e) => e.date === selectedDate);
+  const validityLabel = (s: Disponibilite) => {
+    if (s.validFrom && s.validUntil) return `Du ${formatDateShort(s.validFrom)} au ${formatDateShort(s.validUntil)}`;
+    if (s.validFrom) return `Depuis le ${formatDateShort(s.validFrom)}`;
+    if (s.validUntil) return `Jusqu'au ${formatDateShort(s.validUntil)}`;
+    return 'Sans limite de validité';
   };
 
   return (
@@ -254,11 +307,13 @@ export const DisponibilitesPage: React.FC = () => {
                     </label>
                     <Select
                       value={selectedAgent}
-                      onChange={(e: any) => setSelectedAgent(e.target.value)}
+                      onChange={(value) => setSelectedAgent(value)}
                       options={[
                         { value: '', label: 'Sélectionnez un agent' },
-                        { value: 'agent-002-fatima', label: 'Fatima COULIBALY' },
-                        { value: 'agent-003-amadou', label: 'Amadou DIALLO' },
+                        ...agents.map((a) => ({
+                          value: a.id,
+                          label: `${a.user.profile?.firstName ?? ''} ${a.user.profile?.lastName ?? ''}`.trim() || a.matricule,
+                        })),
                       ]}
                     />
                   </div>
@@ -275,26 +330,52 @@ export const DisponibilitesPage: React.FC = () => {
                   />
                 </div>
 
-                <Button
-                  variant="primary"
-                  className="w-full"
-                  onClick={loadDisponibilites}
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Chargement...' : 'Charger'}
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Les disponibilités affichées sont celles en vigueur à cette date ; elles se mettent à jour dès que vous la modifiez.
+                </p>
+                <Button variant="outline" className="w-full" onClick={loadDisponibilites} disabled={isLoading || !selectedAgent}>
+                  {isLoading ? 'Chargement...' : 'Actualiser'}
                 </Button>
               </div>
             </Card>
 
             {/* Disponibilités */}
             <Card className="lg:col-span-2 p-4">
+              {selectedAgent && (
+                <div className="mb-4 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800 dark:border-brand-900/40 dark:bg-brand-900/20 dark:text-brand-200">
+                  <div className="font-medium">
+                    {dayLabel} {formatDateShort(selectedDate)}
+                  </div>
+                  {exceptionOfDay && exceptionOfDay.isFullDay ? (
+                    <div>Indisponible toute la journée — {exceptionLabel(exceptionOfDay.type)}{exceptionOfDay.reason ? ` (${exceptionOfDay.reason})` : ''}.</div>
+                  ) : effectiveSlots.length > 0 ? (
+                    <div>
+                      Disponible : {effectiveSlots.map((s) => `${formatTime(s.startTime)} – ${formatTime(s.endTime)}`).join(' · ')}
+                      {exceptionOfDay ? ` — sauf ${formatTime(exceptionOfDay.startTime || '')} – ${formatTime(exceptionOfDay.endTime || '')} (${exceptionLabel(exceptionOfDay.type)})` : ''}
+                    </div>
+                  ) : (
+                    <div>Aucune disponibilité configurée pour ce jour.</div>
+                  )}
+                </div>
+              )}
+              {notice && (
+                <div className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-900/20 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span>{notice}</span>
+                  </div>
+                  <button onClick={() => setNotice('')} className="text-amber-500 hover:text-amber-700 shrink-0">
+                    &times;
+                  </button>
+                </div>
+              )}
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium text-gray-900 dark:text-white">
                     <Clock className="w-4 h-4 inline mr-2" />
-                    Disponibilités hebdomadaires
+                    Disponibilités hebdomadaires en vigueur au {formatDateShort(selectedDate)}
                   </h3>
-                  <Button size="sm" onClick={handleAddSlot}>
+                  <Button size="sm" onClick={handleAddSlot} disabled={!selectedAgent}>
                     <Plus className="w-4 h-4 mr-1" />
                     Ajouter un créneau
                   </Button>
@@ -308,15 +389,21 @@ export const DisponibilitesPage: React.FC = () => {
                 ) : (
                   <>
                     <div className="space-y-2">
-                      {disponibilites.map((slot) => (
-                        <Card key={slot.id} className="p-3 flex items-center justify-between hover:shadow-md transition-shadow">
-                          <div className="flex items-center gap-4">
+                      {[...disponibilites]
+                        .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime))
+                        .map((slot) => (
+                        <Card
+                          key={slot.id}
+                          className={`p-3 flex items-center justify-between hover:shadow-md transition-shadow ${slot.dayOfWeek === dayOfWeek ? 'ring-1 ring-brand-300 dark:ring-brand-700' : ''}`}
+                        >
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                             <div className="w-24 font-medium text-gray-900 dark:text-white">
                               {days.find(d => d.value === slot.dayOfWeek)?.label}
                             </div>
                             <div className="text-sm text-gray-600 dark:text-gray-300">
-                              {slot.startTime} - {formatTime(slot.endTime)}
+                              {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
                             </div>
+                            <div className="text-xs text-gray-400">{validityLabel(slot)}</div>
                             <Badge color={slot.isAvailable ? 'success' : 'error'} variant="light">
                               {slot.isAvailable ? 'Disponible' : 'Indisponible'}
                             </Badge>
@@ -334,7 +421,7 @@ export const DisponibilitesPage: React.FC = () => {
 
                       {disponibilites.length === 0 && (
                         <p className="text-center text-gray-500 py-4">
-                          Aucune disponibilité configurée
+                          {selectedAgent ? 'Aucune disponibilité en vigueur à cette date' : 'Sélectionnez un agent pour voir ses disponibilités'}
                         </p>
                       )}
                     </div>
@@ -347,9 +434,9 @@ export const DisponibilitesPage: React.FC = () => {
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-medium text-gray-900 dark:text-white">
                     <AlertCircle className="w-4 h-4 inline mr-2" />
-                    Exceptions
+                    Exceptions à partir du {formatDateShort(selectedDate)}
                   </h3>
-                  <Button size="sm" variant="outline" onClick={handleAddException}>
+                  <Button size="sm" variant="outline" onClick={handleAddException} disabled={!selectedAgent}>
                     <Plus className="w-4 h-4 mr-1" />
                     Ajouter une exception
                   </Button>
@@ -357,13 +444,16 @@ export const DisponibilitesPage: React.FC = () => {
 
                 <div className="space-y-2">
                   {exceptions.map((exception) => (
-                    <Card key={exception.id} className="p-3 flex items-center justify-between hover:shadow-md transition-shadow">
+                    <Card
+                      key={exception.id}
+                      className={`p-3 flex items-center justify-between hover:shadow-md transition-shadow ${exception.date === selectedDate ? 'ring-1 ring-amber-300 dark:ring-amber-700' : ''}`}
+                    >
                       <div className="flex items-center gap-4">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {new Date(exception.date).toLocaleDateString()}
+                          {formatDateShort(exception.date)}
                         </div>
                         <Badge color="warning" variant="light">
-                          {exception.type}
+                          {exceptionLabel(exception.type)}
                         </Badge>
                         <div className="text-sm text-gray-600 dark:text-gray-300">
                           {exception.isFullDay ? 'Journée complète' : 
@@ -379,7 +469,7 @@ export const DisponibilitesPage: React.FC = () => {
 
                   {exceptions.length === 0 && (
                     <p className="text-center text-gray-500 py-4">
-                      Aucune exception
+                      Aucune exception à venir
                     </p>
                   )}
                 </div>
@@ -397,10 +487,16 @@ export const DisponibilitesPage: React.FC = () => {
         >
           {editingSlot && (
             <div className="space-y-4">
+              {slotError && (
+                <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-900/20 px-3 py-2 text-sm text-red-700 dark:text-red-400">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{slotError}</span>
+                </div>
+              )}
               <Select
                 label="Jour"
                 value={String(editingSlot.dayOfWeek)}
-                onChange={(e: any) => setEditingSlot({ ...editingSlot, dayOfWeek: parseInt(e.target.value) })}
+                onChange={(value) => setEditingSlot({ ...editingSlot, dayOfWeek: parseInt(value) })}
                 options={days.map(d => ({ value: String(d.value), label: d.label }))}
               />
               
@@ -431,6 +527,21 @@ export const DisponibilitesPage: React.FC = () => {
                 </label>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Valable à partir du"
+                  type="date"
+                  value={editingSlot.validFrom || ''}
+                  onChange={(e) => setEditingSlot({ ...editingSlot, validFrom: e.target.value || undefined })}
+                />
+                <Input
+                  label="Jusqu'au (optionnel)"
+                  type="date"
+                  value={editingSlot.validUntil || ''}
+                  onChange={(e) => setEditingSlot({ ...editingSlot, validUntil: e.target.value || null })}
+                />
+              </div>
+
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <Button variant="ghost" onClick={() => setShowSlotModal(false)}>
                   Annuler
@@ -456,9 +567,16 @@ export const DisponibilitesPage: React.FC = () => {
               <div className="text-sm text-gray-500 dark:text-gray-400">
               Les exceptions sont des périodes où le professionnel n'est pas disponible pour des raisons spécifiques (congé, formation, absence, etc.).
               </div>
+              {exceptionError && (
+                <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-900/20 px-3 py-2 text-sm text-red-700 dark:text-red-400">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{exceptionError}</span>
+                </div>
+              )}
               <Input
                 label="Date"
                 type="date"
+                min={todayISO()}
                 value={editingException.date}
                 onChange={(e) => setEditingException({ ...editingException, date: e.target.value })}
               />

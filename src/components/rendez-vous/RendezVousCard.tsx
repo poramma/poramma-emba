@@ -4,14 +4,17 @@ import React, { useState } from 'react';
 import { 
   Clock, User, MapPin, Phone, Mail, CheckCircle, XCircle, 
   AlertCircle, Calendar, Shield, MoreVertical, Edit, 
-  Trash2, Eye, Send, FileText, ArrowRight
+  Trash2, Eye, Send, FileText, ArrowRight, MessageSquare
 } from 'lucide-react';
+import { WhatsAppContact } from '../common/WhatsAppContact';
+import { RendezVousExchange } from './RendezVousExchange';
+import { rendezVousMessage } from '../../lib/whatsapp';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { useRendezVous } from '../../hooks/useRendezVous';
 import { useAuth } from '../../hooks/useAuth';
-import { formatDateShort, formatTime } from '../../lib/date';
+import { formatDateShort, formatTime, formatDateTime } from '../../lib/date';
 import { RDVStatus, RDVType } from '../../types/rendez-vous';
 import { RendezVous } from '../../types/rendez-vous';
 
@@ -34,6 +37,7 @@ export const RendezVousCard: React.FC<RendezVousCardProps> = ({
   const { updateRendezVousStatus, cancelRendezVous } = useRendezVous();
   const [isLoading, setIsLoading] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showExchange, setShowExchange] = useState(false);
 
   const statusConfig = {
     [RDVStatus.PENDING]: { 
@@ -342,6 +346,25 @@ export const RendezVousCard: React.FC<RendezVousCardProps> = ({
           </Button>
           <Button
             size="sm"
+            variant="outline"
+            onClick={() => setShowExchange(true)}
+          >
+            <MessageSquare className="w-4 h-4 mr-1" />
+            Échanges
+          </Button>
+          <WhatsAppContact
+            phone={rendezVous.user?.phone}
+            recipientName={`${rendezVous.user?.profile?.firstName ?? ''} ${rendezVous.user?.profile?.lastName ?? ''}`.trim() || undefined}
+            defaultMessage={rendezVousMessage({
+              name: rendezVous.user?.profile?.firstName,
+              ticketId: rendezVous.ticketId,
+              serviceName: rendezVous.subService?.name,
+              date: rendezVous.date,
+              time: rendezVous.slot ? formatTime(rendezVous.slot.startTime) : '',
+            })}
+          />
+          <Button
+            size="sm"
             variant="ghost"
             onClick={() => onView?.(rendezVous)}
           >
@@ -349,6 +372,8 @@ export const RendezVousCard: React.FC<RendezVousCardProps> = ({
           </Button>
         </div>
       )}
+
+      <RendezVousExchange rendezVous={rendezVous} isOpen={showExchange} onClose={() => setShowExchange(false)} />
 
       {/* Détails étendus */}
       {showDetails && (
@@ -361,14 +386,14 @@ export const RendezVousCard: React.FC<RendezVousCardProps> = ({
             <div>
               <span className="text-gray-500 dark:text-gray-400">Créé le:</span>
               <span className="ml-2 text-gray-900 dark:text-white">
-                {new Date(rendezVous.createdAt).toLocaleString()}
+                {formatDateTime(rendezVous.createdAt)}
               </span>
             </div>
             {rendezVous.checkedInAt && (
               <div>
                 <span className="text-gray-500 dark:text-gray-400">Arrivée:</span>
                 <span className="ml-2 text-gray-900 dark:text-white">
-                  {new Date(rendezVous.checkedInAt).toLocaleString()}
+                  {formatDateTime(rendezVous.checkedInAt)}
                 </span>
               </div>
             )}
@@ -376,7 +401,7 @@ export const RendezVousCard: React.FC<RendezVousCardProps> = ({
               <div>
                 <span className="text-gray-500 dark:text-gray-400">Terminé:</span>
                 <span className="ml-2 text-gray-900 dark:text-white">
-                  {new Date(rendezVous.completedAt).toLocaleString()}
+                  {formatDateTime(rendezVous.completedAt)}
                 </span>
               </div>
             )}

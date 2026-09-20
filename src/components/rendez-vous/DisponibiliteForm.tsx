@@ -12,7 +12,7 @@ import { Badge } from '../ui/badge';
 import { Modal } from '../ui/modal';
 import { useAuth } from '../../hooks/useAuth';
 import { usePermission } from '../../hooks/usePermission';
-import { formatTime } from '../../lib/date';
+import { formatTime, formatDateShort } from '../../lib/date';
 
 interface DisponibiliteFormProps {
   isOpen: boolean;
@@ -313,7 +313,7 @@ export const DisponibiliteForm: React.FC<DisponibiliteFormProps> = ({
                   <Card key={exception.id} className="p-3 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {new Date(exception.date).toLocaleDateString()}
+                        {formatDateShort(exception.date)}
                       </div>
                       <Badge color="warning" variant="light">
                         {exception.type}

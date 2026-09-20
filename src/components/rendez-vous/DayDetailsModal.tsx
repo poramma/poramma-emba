@@ -9,7 +9,7 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Modal } from '../ui/modal';
-import { formatDateFR } from '../../lib/date';
+import { formatDateFR, formatDateTime } from '../../lib/date';
 import { RDVStatus, RDVType, RendezVous } from '../../types/rendez-vous';
 
 interface DayDetail {
@@ -227,14 +227,14 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
                         <div>
                           <span className="text-gray-500">Créé le:</span>
                           <span className="ml-2 text-gray-900 dark:text-white">
-                            {new Date(rdv.createdAt).toLocaleString()}
+                            {formatDateTime(rdv.createdAt)}
                           </span>
                         </div>
                         {rdv.checkedInAt && (
                           <div>
                             <span className="text-gray-500">Arrivée:</span>
                             <span className="ml-2 text-gray-900 dark:text-white">
-                              {new Date(rdv.checkedInAt).toLocaleString()}
+                              {formatDateTime(rdv.checkedInAt)}
                             </span>
                           </div>
                         )}
@@ -242,7 +242,7 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
                           <div>
                             <span className="text-gray-500">Terminé:</span>
                             <span className="ml-2 text-gray-900 dark:text-white">
-                              {new Date(rdv.completedAt).toLocaleString()}
+                              {formatDateTime(rdv.completedAt)}
                             </span>
                           </div>
                         )}

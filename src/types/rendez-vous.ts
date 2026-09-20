@@ -71,10 +71,13 @@ export interface RendezVous {
   demande: Demande | null;
   userId: string;
   user: Utilisateur;
+  subServiceId: string;      // présent même pour une urgence (pas de slot)
+  subService?: SubService | null;
   agentId: string;
   agent: Agent;
   slotId: string | null;     // null pour les urgences (pas de créneau pré-réservé)
   slot?: AgendaSlot | null;
+  date: string;               // date du RDV (créneau planifié, ou jour de l'urgence) — distinct de createdAt
   ticketId: string;          // Numéro de ticket affiché (ex: "RDV-20250705-001")
   type: RDVType;
   status: RDVStatus;
@@ -100,10 +103,11 @@ export interface RendezVous {
 export interface RendezVousNote {
   id: string;
   rendezVousId: string;
-  authorUserId: string;
-  author: Utilisateur;
+  authorId: string;
+  authorName: string | null;
+  authorType: 'AGENT' | 'STUDENT' | 'SYSTEM';
   content: string;
-  isInternal: boolean;       // Visible uniquement agents
+  isInternal: boolean;       // false = visible du demandeur (espace d'échange), true = note interne
   createdAt: string;
 }
 
@@ -149,9 +153,11 @@ export interface DailyScheduleContent {
     subServiceName: string;
     appointments: Array<{
       time: string;
+      endTime?: string | null;
       ticketId: string;
       studentName: string;
       studentInue: string;
+      studentPhone?: string | null;
       motif: string;
       status: string;
       agentName: string;

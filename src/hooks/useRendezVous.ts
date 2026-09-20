@@ -8,6 +8,7 @@ import {
   RendezVous,
   AgendaSlot,
   DailySchedulePrint,
+  RendezVousNote,
   RDVType,
   RDVStatus,
   PrintFormat,
@@ -33,7 +34,9 @@ interface RdvFilters {
 interface CreateRdvPayload {
   userId: string;
   subServiceId: string;
-  agentId: string;
+  // Le RDV se prend pour un service, pas un agent précis — l'agent réel est
+  // dérivé server-side du slotId (voir memory poramma-backend-phase1).
+  agentId?: string;
   slotId: string;
   motif?: string;
   demandeId?: string;
@@ -64,6 +67,7 @@ interface UseRendezVousReturn {
   selectedSubServiceId: string | null;
   printHistory: DailySchedulePrint[];
   lastPrint: DailySchedulePrint | null;
+  notes: RendezVousNote[];
   isLoading: boolean;
   error: string | null;
 
@@ -110,6 +114,12 @@ interface UseRendezVousReturn {
   // ── Urgence ──
   createUrgence: (data: CreateUrgencePayload) => Promise<RendezVous>;
 
+  // ── Espace d'échange (notes) ──
+  fetchNotes: (rendezVousId: string) => Promise<void>;
+  addNote: (rendezVousId: string, content: string, isInternal: boolean) => Promise<void>;
+  addPublicNote: (rendezVousId: string, content: string) => Promise<void>;
+  addInternalNote: (rendezVousId: string, content: string) => Promise<void>;
+
   // ── Impression (besoin ambassade) ──
   printDailySchedule: (params: PrintScheduleParams) => Promise<DailySchedulePrint>;
   fetchPrintHistory: (date: string) => Promise<void>;
@@ -148,8 +158,11 @@ export const useRendezVous = (): UseRendezVousReturn => {
     selectedSubServiceId,
     printHistory,
     lastPrint,
+    notes,
     isLoading,
     error,
+    fetchNotes: storeFetchNotes,
+    addNote: storeAddNote,
     fetchSlots: storeFetchSlots,
     fetchRendezVous: storeFetchRendezVous,
     createRendezVous: storeCreateRendezVous,
@@ -166,15 +179,26 @@ export const useRendezVous = (): UseRendezVousReturn => {
     completeRendezVous: storeCompleteRendezVous,
   } = store;
 
+  const addPublicNote = useCallback(
+    async (rendezVousId: string, content: string) => {
+      await storeAddNote(rendezVousId, content, false);
+    },
+    [storeAddNote]
+  );
+
+  const addInternalNote = useCallback(
+    async (rendezVousId: string, content: string) => {
+      await storeAddNote(rendezVousId, content, true);
+    },
+    [storeAddNote]
+  );
+
   // ═══════════════════════════════════════════════════════════
   // COMPUTED
   // ═══════════════════════════════════════════════════════════
 
   const rendezVousDuJour = useMemo(() => {
-    return rendezVous.filter((r) => {
-      const rdvDate = r.createdAt.split('T')[0];
-      return rdvDate === selectedDate;
-    });
+    return rendezVous.filter((r) => r.date === selectedDate);
   }, [rendezVous, selectedDate]);
 
   const rendezVousConfirmes = useMemo(
@@ -477,6 +501,7 @@ export const useRendezVous = (): UseRendezVousReturn => {
     selectedSubServiceId,
     printHistory,
     lastPrint,
+    notes,
     isLoading,
     error,
 
@@ -514,6 +539,12 @@ export const useRendezVous = (): UseRendezVousReturn => {
 
     // Urgence
     createUrgence,
+
+    // Espace d'échange
+    fetchNotes: storeFetchNotes,
+    addNote: storeAddNote,
+    addPublicNote,
+    addInternalNote,
 
     // Impression
     printDailySchedule,

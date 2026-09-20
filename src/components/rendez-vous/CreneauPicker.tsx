@@ -8,7 +8,7 @@ import { Badge } from '../ui/badge';
 import { Select } from '../ui/select';
 import { useRendezVous } from '../../hooks/useRendezVous';
 import { useAuth } from '../../hooks/useAuth';
-import { formatTime } from '../../lib/date';
+import { formatTime, formatDateShort } from '../../lib/date';
 import { SUB_SERVICES } from '../../config/services-consulaires';
 
 interface CreneauPickerProps {
@@ -104,7 +104,7 @@ export const CreneauPicker: React.FC<CreneauPickerProps> = ({
             Aucun créneau disponible
           </h3>
           <p className="text-gray-500 dark:text-gray-400">
-            Aucun créneau disponible pour le {new Date(date).toLocaleDateString()}.
+            Aucun créneau disponible pour le {formatDateShort(date)}.
             {!selectedSubService && !selectedAgent && ' Veuillez sélectionner un service ou un agent.'}
           </p>
         </Card>

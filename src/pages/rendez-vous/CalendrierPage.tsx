@@ -1,6 +1,6 @@
 // src/pages/rendez-vous/CalendrierPage.tsx
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Calendar, CalendarDays, CalendarRange, RefreshCw, User, Search, X } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -13,7 +13,6 @@ import { CalendrierSemaine } from '../../components/rendez-vous/CalendrierSemain
 import { CalendrierMois } from '../../components/rendez-vous/CalendrierMois';
 import { RendezVousCard } from '../../components/rendez-vous/RendezVousCard';
 import { RendezVousForm } from '../../components/rendez-vous/RendezVousForm';
-import { UrgenceForm } from '../../components/rendez-vous/UrgenceForm';
 import { PrintRdvJour } from '../../components/rendez-vous/PrintRdvJour';
 import { DisponibiliteForm } from '../../components/rendez-vous/DisponibiliteForm';
 import { useRendezVous } from '../../hooks/useRendezVous';
@@ -25,12 +24,11 @@ type VueCalendrier = 'jour' | 'semaine' | 'mois';
 
 export const CalendrierPage: React.FC = () => {
   const { user } = useAuth();
-  const { canCreateUrgence, canPrintDailySchedule, canManageServices } = usePermission();
+  const { canPrintDailySchedule, canManageServices } = usePermission();
   const { selectedDate, setSelectedDate, refreshJour, rendezVous } = useRendezVous();
 
   const [vue, setVue] = useState<VueCalendrier>('jour');
   const [showNewRdv, setShowNewRdv] = useState(false);
-  const [showUrgence, setShowUrgence] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [showDisponibilites, setShowDisponibilites] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,6 +90,10 @@ export const CalendrierPage: React.FC = () => {
     await refreshJour();
   }, [refreshJour]);
 
+  useEffect(() => {
+    refreshJour();
+  }, [selectedDate]);
+
   const handleClearSearch = () => {
     setSearchQuery('');
   };
@@ -121,15 +123,6 @@ export const CalendrierPage: React.FC = () => {
               <Calendar className="w-4 h-4 mr-2" />
               Nouveau RDV
             </Button>
-            
-            {canCreateUrgence() && (
-              <Button
-                variant="error"
-                onClick={() => setShowUrgence(true)}
-              >
-                Urgence
-              </Button>
-            )}
             
             {canPrintDailySchedule() && (
               <Button
@@ -304,15 +297,6 @@ export const CalendrierPage: React.FC = () => {
           refreshJour();
         }}
         initialData={{ date: selectedDate }}
-      />
-
-      <UrgenceForm
-        isOpen={showUrgence}
-        onClose={() => setShowUrgence(false)}
-        onSuccess={() => {
-          setShowUrgence(false);
-          refreshJour();
-        }}
       />
 
       <PrintRdvJour

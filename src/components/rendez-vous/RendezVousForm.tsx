@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDebouncedSearch } from '../../hooks/useDebouncedSearch';
 import { AlertCircle, Search, User, X } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
@@ -8,9 +9,11 @@ import { Badge } from '../ui/badge';
 import { Modal } from '../ui/modal';
 import { useRendezVous } from '../../hooks/useRendezVous';
 import { useAuth } from '../../hooks/useAuth';
-import { SUB_SERVICES } from '../../config/services-consulaires';
+import { useServices } from '../../hooks/useServices';
+import { useEtudiants } from '../../hooks/useEtudiants';
 import { Etudiant } from '../../types/etudiant';
 import { CreneauPicker } from './CreneauPicker';
+import { formatDateShort } from '../../lib/date';
 
 interface RendezVousFormProps {
   isOpen: boolean;
@@ -32,12 +35,13 @@ export const RendezVousForm: React.FC<RendezVousFormProps> = ({
 }) => {
   const { user } = useAuth();
   const { createRendezVous, isLoading } = useRendezVous();
+  const { subServices } = useServices();
+  const { searchEtudiants } = useEtudiants();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [formData, setFormData] = useState({
     userId: initialData?.userId || '',
     subServiceId: initialData?.subServiceId || '',
-    agentId: initialData?.agentId || '',
     slotId: '',
     motif: '',
     date: initialData?.date || new Date().toISOString().split('T')[0],
@@ -48,118 +52,28 @@ export const RendezVousForm: React.FC<RendezVousFormProps> = ({
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchResults, setSearchResults] = useState<Etudiant[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  // Recherche en temps réel : lancée peu après la dernière frappe (et non à chaque touche).
+  useDebouncedSearch(searchQuery, (q) => handleStudentSearch(q));
   const [showStudentSearchModal, setShowStudentSearchModal] = useState(false);
   const [isSearchingStudents, setIsSearchingStudents] = useState(false);
 
-  // Recherche d'étudiant (intégration future avec la plateforme tiers)
   const handleStudentSearch = async (query: string) => {
-  if (!query || query.length < 2) {
-    setSearchResults([]);
-    return;
-  }
+    if (!query || query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
 
-  setIsSearchingStudents(true);
-  try {
-    // TODO: Appel API réel
-    // const response = await api.get('/etudiants/search', { params: { query } });
-    // setSearchResults(response.data);
-    
-    // Mock pour développement
-    setTimeout(() => {
-    const mockStudents: Etudiant[] = [
-        {
-        id: 'usr-stu-001',
-        inue: 'ML-STU-000237',
-        email: 'moussa.diarra@etudiant.ma',
-        phone: '+212 6 12 34 56 78',
-        firstName: 'Moussa',
-        lastName: 'DIARRA',
-        status: 'VERIFIED' as any,
-        profile: {
-            id: 'prof-001',
-            userId: 'usr-stu-001',
-            university: 'Université Mohammed V de Rabat',
-            faculty: 'Sciences économiques',
-            studyLevel: 'Master 2',
-            studentCardNumber: 'STU-2024-001',
-            enrollmentYear: 2024,
-            createdAt: '',
-            updatedAt: '',
-        },
-        bourse: null,
-        documents: [],
-        demandes: [],
-        createdAt: '',
-        updatedAt: '',
-        },
-        {
-        id: 'usr-stu-002',
-        inue: 'ML-STU-000456',
-        email: 'fatoumata.toure@etudiant.ma',
-        phone: '+212 6 98 76 54 32',
-        firstName: 'Fatoumata',
-        lastName: 'TOURÉ',
-        status: 'VERIFIED' as any,
-        profile: {
-            id: 'prof-002',
-            userId: 'usr-stu-002',
-            university: 'Université Hassan II de Casablanca',
-            faculty: 'Droit',
-            studyLevel: 'Licence 3',
-            studentCardNumber: 'STU-2024-002',
-            enrollmentYear: 2024,
-            createdAt: '',
-            updatedAt: '',
-        },
-        bourse: null,
-        documents: [],
-        demandes: [],
-        createdAt: '',
-        updatedAt: '',
-        },
-        {
-        id: 'usr-stu-003',
-        inue: 'ML-STU-000789',
-        email: 'ibrahima.kone@etudiant.ma',
-        phone: '+212 6 55 44 33 22',
-        firstName: 'Ibrahima',
-        lastName: 'KONÉ',
-        status: 'VERIFIED' as any,
-        profile: {
-            id: 'prof-003',
-            userId: 'usr-stu-003',
-            university: 'Université Cadi Ayyad de Marrakech',
-            faculty: 'Médecine',
-            studyLevel: 'Doctorat',
-            studentCardNumber: 'STU-2024-003',
-            enrollmentYear: 2023,
-            createdAt: '',
-            updatedAt: '',
-        },
-        bourse: null,
-        documents: [],
-        demandes: [],
-        createdAt: '',
-        updatedAt: '',
-        },
-    ];
-    
-    // Filtrer par query
-    const filtered = mockStudents.filter(s => 
-        s.firstName.toLowerCase().includes(query.toLowerCase()) ||
-        s.lastName.toLowerCase().includes(query.toLowerCase()) ||
-        s.inue!.toLowerCase().includes(query.toLowerCase()) ||
-        s.email.toLowerCase().includes(query.toLowerCase())
-    );
-    
-    setSearchResults(filtered);
-    setIsSearchingStudents(false);
-    }, 500);
-  } catch (error) {
-    console.error('Erreur de recherche:', error);
-    setIsSearchingStudents(false);
-  }
-};
+    setIsSearchingStudents(true);
+    try {
+      const results = await searchEtudiants(query);
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Erreur de recherche:', error);
+    } finally {
+      setIsSearchingStudents(false);
+    }
+  };
+
 
 const handleSelectStudent = (student: Etudiant) => {
 setEtudiant(student);
@@ -173,7 +87,6 @@ setSearchResults([]);
     const newErrors: Record<string, string> = {};
     if (!formData.userId) newErrors.userId = 'Veuillez sélectionner un étudiant';
     if (!formData.subServiceId) newErrors.subServiceId = 'Veuillez sélectionner un service';
-    if (!formData.agentId) newErrors.agentId = 'Veuillez sélectionner un agent';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -202,7 +115,6 @@ setSearchResults([]);
       const rdv = await createRendezVous({
         userId: formData.userId,
         subServiceId: formData.subServiceId,
-        agentId: formData.agentId,
         slotId: formData.slotId,
         motif: formData.motif || undefined,
       });
@@ -214,8 +126,7 @@ setSearchResults([]);
     }
   };
 
-  const selectedSubService = SUB_SERVICES.find(s => s.id === formData.subServiceId);
-  const selectedAgentName = 'Agent assigné'; // TODO: Récupérer depuis l'API
+  const selectedSubService = subServices.find(s => s.id === formData.subServiceId);
 
   return (
     <>
@@ -241,12 +152,10 @@ setSearchResults([]);
                 </label>
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Rechercher par nom, INUE ou email..."
-                    onChange={(e) => {
-                      if (e.target.value.length > 2) {
-                        handleStudentSearch(e.target.value);
-                      }
-                    }}
+                    placeholder="Cliquez pour rechercher un étudiant (nom, INUE, email)..."
+                    value={etudiant ? `${etudiant.firstName ?? ""} ${etudiant.lastName ?? ""}`.trim() : ""}
+                    readOnly
+                    onFocus={() => setShowStudentSearchModal(true)}
                     startIcon={<Search className="w-4 h-4" />}
                     className="flex-1"
                   />
@@ -307,11 +216,7 @@ setSearchResults([]);
                   }}
                   options={[
                     { value: '', label: 'Sélectionnez un service' },
-                    ...SUB_SERVICES.map(s => ({ 
-                      value: s.id, 
-                      label: s.name,
-                      // Optionnel: groupBy: s.service?.name
-                    }))
+                    ...subServices.map(s => ({ value: s.id, label: s.name }))
                   ]}
                 />
                 {errors.subServiceId && (
@@ -322,30 +227,6 @@ setSearchResults([]);
                     <p>Durée: {selectedSubService.schedules?.[0]?.slotDurationMinutes || 30} min</p>
                     <p>Délai: {selectedSubService.slaDays} jours ouvrés</p>
                   </div>
-                )}
-              </div>
-
-              {/* Sélection agent */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Agent *
-                </label>
-                <Select
-                  value={formData.agentId}
-                  onChange={(value) => {
-                    setFormData({ ...formData, agentId: value });
-                    // Réinitialiser le créneau si l'agent change
-                    setFormData(prev => ({ ...prev, slotId: '' }));
-                  }}
-                  options={[
-                    { value: '', label: 'Sélectionnez un agent' },
-                    // TODO: Charger depuis l'API
-                    { value: 'agent-002-fatima', label: 'Fatima COULIBALY' },
-                    { value: 'agent-003-amadou', label: 'Amadou DIALLO' },
-                  ]}
-                />
-                {errors.agentId && (
-                  <p className="text-sm text-red-600 mt-1">{errors.agentId}</p>
                 )}
               </div>
 
@@ -386,15 +267,9 @@ setSearchResults([]);
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Agent:</span>
-                  <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                    {selectedAgentName}
-                  </span>
-                </div>
-                <div>
                   <span className="text-gray-500">Date:</span>
                   <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                    {new Date(formData.date).toLocaleDateString()}
+                    {formatDateShort(formData.date)}
                   </span>
                 </div>
               </div>
@@ -403,7 +278,6 @@ setSearchResults([]);
             <CreneauPicker
               date={formData.date}
               subServiceId={formData.subServiceId}
-              agentId={formData.agentId}
               onSlotSelect={(slotId) => setFormData({ ...formData, slotId })}
               selectedSlotId={formData.slotId}
             />
@@ -442,15 +316,9 @@ setSearchResults([]);
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Agent:</span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {selectedAgentName}
-                  </span>
-                </div>
-                <div className="flex justify-between">
                   <span className="text-gray-500">Date:</span>
                   <span className="font-medium text-gray-900 dark:text-white">
-                    {new Date(formData.date).toLocaleDateString()}
+                    {formatDateShort(formData.date)}
                   </span>
                 </div>
                 {formData.motif && (
@@ -526,10 +394,7 @@ setSearchResults([]);
         <Input
           placeholder="Rechercher par nom, INUE ou email..."
           value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            handleStudentSearch(e.target.value);
-          }}
+          onChange={(e) => setSearchQuery(e.target.value)}
           startIcon={<Search className="w-4 h-4" />}
         />
         

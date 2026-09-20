@@ -73,10 +73,7 @@ export const CalendrierSemaine: React.FC<CalendrierSemaineProps> = ({
    * Récupère les détails d'un jour
    */
   const getDayDetails = (dayDate: string): DayDetail => {
-    const rdvs = rendezVous.filter(rdv => {
-      const rdvDate = rdv.slot?.date || rdv.createdAt.split('T')[0];
-      return rdvDate === dayDate;
-    });
+    const rdvs = rendezVous.filter(rdv => rdv.date === dayDate);
 
     const stats = {
       total: rdvs.length,
@@ -139,16 +136,12 @@ export const CalendrierSemaine: React.FC<CalendrierSemaineProps> = ({
    */
   const getRdvForSlot = (day: string, hour: string) => {
     return rendezVous.filter(rdv => {
-      const rdvDate = rdv.slot?.date || rdv.createdAt.split('T')[0];
-      
-      let rdvHour = -1;
-      if (rdv.slot) {
-        rdvHour = parseInt(rdv.slot.startTime.split(':')[0]);
-      } else {
-        rdvHour = parseInt(rdv.createdAt.split('T')[1].substring(0, 2));
-      }
-      
-      return rdvDate === day && rdvHour === parseInt(hour);
+      // Une urgence n'a pas de créneau planifié — on l'affiche à son heure de création.
+      const rdvHour = rdv.slot
+        ? parseInt(rdv.slot.startTime.split(':')[0])
+        : parseInt(rdv.createdAt.split('T')[1].substring(0, 2));
+
+      return rdv.date === day && rdvHour === parseInt(hour);
     });
   };
 
@@ -244,10 +237,7 @@ export const CalendrierSemaine: React.FC<CalendrierSemaineProps> = ({
               {weekDays.map((day, index) => {
                 const isToday = day === new Date().toISOString().split('T')[0];
                 const isFerie = isJourFerie(day);
-                const hasRdvs = rendezVous.some(rdv => {
-                  const rdvDate = rdv.slot?.date || rdv.createdAt.split('T')[0];
-                  return rdvDate === day;
-                });
+                const hasRdvs = rendezVous.some(rdv => rdv.date === day);
 
                 return (
                   <div
