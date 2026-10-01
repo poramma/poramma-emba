@@ -23,6 +23,7 @@ import {
   GeneratedDocumentPayload,
 } from '../types';
 import { AgentDepartment } from '../types';
+import { PaginationMeta } from '../types/api';
 
 // ============================================================
 // INTERFACE DU HOOK
@@ -31,6 +32,9 @@ import { AgentDepartment } from '../types';
 interface UseDocumentsReturn {
   // État
   documents: DocumentGED[];
+  documentsMeta: PaginationMeta | null;
+  documentsPage: number;
+  setDocumentsPage: (page: number) => void;
   selectedDocument: DocumentGED | null;
   versions: DocumentVersion[];
   filters: DocumentFilters;
@@ -62,7 +66,7 @@ interface UseDocumentsReturn {
   averageSize: number;
 
   // Actions CRUD — documents étudiants
-  fetchDocuments: (filters?: DocumentFilters) => Promise<void>;
+  fetchDocuments: (filters?: DocumentFilters, page?: number) => Promise<void>;
   fetchDocumentsByDemande: (demandeId: string) => Promise<void>;
   fetchDocumentById: (id: string) => Promise<DocumentGED | null>;
   uploadDocument: (payload: DocumentUploadPayload) => Promise<DocumentGED>;
@@ -145,6 +149,8 @@ export const useDocuments = (): UseDocumentsReturn => {
 
   const {
     documents,
+    documentsMeta,
+    documentsPage,
     selectedDocument,
     versions,
     filters,
@@ -158,6 +164,7 @@ export const useDocuments = (): UseDocumentsReturn => {
     error,
     uploadProgress,
     fetchDocuments: storeFetchDocuments,
+    setDocumentsPage,
     fetchDocumentsByDemande: storeFetchDocumentsByDemande,
     fetchDocumentById: storeFetchDocumentById,
     uploadDocument: storeUploadDocument,
@@ -301,8 +308,8 @@ export const useDocuments = (): UseDocumentsReturn => {
   // ============================================================
 
   const fetchDocuments = useCallback(
-    async (filters?: DocumentFilters) => {
-      await storeFetchDocuments(filters);
+    async (filters?: DocumentFilters, page?: number) => {
+      await storeFetchDocuments(filters, page);
     },
     [storeFetchDocuments]
   );
@@ -601,6 +608,9 @@ export const useDocuments = (): UseDocumentsReturn => {
 
   return {
     documents,
+    documentsMeta,
+    documentsPage,
+    setDocumentsPage,
     selectedDocument,
     versions,
     filters,

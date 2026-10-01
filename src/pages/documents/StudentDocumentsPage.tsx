@@ -56,9 +56,12 @@ export const StudentDocumentsPage: React.FC = () => {
   const { studentId } = useParams<{ studentId?: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { 
-    documents, 
-    fetchDocuments, 
+  const {
+    documents,
+    documentsMeta,
+    documentsPage,
+    setDocumentsPage,
+    fetchDocuments,
     isLoading,
     downloadDocument,
     fetchCategories,
@@ -224,9 +227,9 @@ export const StudentDocumentsPage: React.FC = () => {
                   {selectedStudent ? 'Dossier étudiant' : 'Documents étudiants'}
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  {selectedStudent 
+                  {selectedStudent
                     ? `${selectedStudent.firstName} ${selectedStudent.lastName} - ${selectedStudent.inue ?? 'INUE non attribué'}`
-                    : `${documents.length} document${documents.length > 1 ? 's' : ''} au total`
+                    : (() => { const total = documentsMeta?.total ?? documents.length; return `${total} document${total > 1 ? 's' : ''} au total`; })()
                   }
                 </p>
               </div>
@@ -373,6 +376,7 @@ export const StudentDocumentsPage: React.FC = () => {
                 onDownload={handleDownload}
                 showOwnerColumn={true}
                 emptyMessage="Aucun document étudiant trouvé"
+                serverPagination={{ page: documentsPage, meta: documentsMeta, onPageChange: setDocumentsPage }}
               />
             </>
           )}

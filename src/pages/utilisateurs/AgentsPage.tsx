@@ -7,11 +7,13 @@ import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
+import { Pagination } from '../../components/ui/pagination';
 import { PermissionGuard } from '../../components/auth/PermissionGuard';
 import { AgentList } from '../../components/utilisateurs/AgentList';
 import { AgentForm } from '../../components/utilisateurs/AgentForm';
 import { useAgents } from '../../hooks/useAgents';
 import { usePermission } from '../../hooks/usePermission';
+import { useDebouncedSearch } from '../../hooks/useDebouncedSearch';
 import { PermissionCode } from '../../types/auth';
 import { Agent, RoleName, AgentDepartment, UserStatus } from '../../types/auth';
 
@@ -26,17 +28,21 @@ const DEPARTMENT_LABELS: Record<AgentDepartment, string> = {
 
 export const AgentsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { 
-    agents, 
-    filteredAgents,
-    isLoading, 
+  const {
+    agents,
+    agentsMeta,
+    setAgentsPage,
+    isLoading,
     fetchAgents,
-    toggleAgentActive, 
-    deleteAgent 
+    toggleAgentActive,
+    deleteAgent
   } = useAgents();
   const { can } = usePermission();
 
-  // États pour les filtres
+  // États pour les filtres — envoyés au serveur (voir agentsStore.fetchAgents),
+  // plus de filtrage local : la page reçue est déjà la bonne, sans quoi la
+  // pagination et les filtres se contrediraient (une page de 20 filtrée
+  // localement peut afficher moins de résultats que le total annoncé).
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<UserStatus | 'all'>('all');
   const [selectedDepartment, setSelectedDepartment] = useState<AgentDepartment | 'all'>('all');
@@ -46,38 +52,27 @@ export const AgentsPage: React.FC = () => {
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [isLoadingAction, setIsLoadingAction] = useState(false);
 
-  // Charger les agents au montage
-  useEffect(() => {
-    fetchAgents();
-  }, [fetchAgents]);
-
-  // Filtrer les agents localement
-  const getFilteredAgents = () => {
-    return agents.filter(agent => {
-      // Recherche
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const fullName = `${agent.user.profile.firstName} ${agent.user.profile.lastName}`.toLowerCase();
-        const matchName = fullName.includes(query);
-        const matchEmail = agent.user.email.toLowerCase().includes(query);
-        const matchMatricule = agent.matricule.toLowerCase().includes(query);
-        if (!matchName && !matchEmail && !matchMatricule) return false;
-      }
-      
-      // Statut
-      if (selectedStatus !== 'all' && agent.user.status !== selectedStatus) return false;
-      
-      // Département
-      if (selectedDepartment !== 'all' && agent.department !== selectedDepartment) return false;
-      
-      // Rôle
-      if (selectedRole !== 'all' && agent.user.activeRole?.name !== selectedRole) return false;
-      
-      return true;
+  const applyFilters = (patch: Partial<{ search: string; status: UserStatus | 'all'; department: AgentDepartment | 'all'; role: RoleName | 'all' }> = {}) => {
+    fetchAgents({
+      search: patch.search ?? searchQuery,
+      status: patch.status ?? selectedStatus,
+      department: patch.department ?? selectedDepartment,
+      role: patch.role ?? selectedRole,
+      page: 1,
+      limit: 20,
     });
   };
 
-  const filteredAgentsList = getFilteredAgents();
+  // Charger les agents au montage
+  useEffect(() => {
+    applyFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Recherche en temps réel : appliquée peu après la dernière frappe.
+  useDebouncedSearch(searchQuery, (text) => applyFilters({ search: text }));
+
+  const filteredAgentsList = agents;
 
   const handleEdit = (agent: Agent) => {
     setEditingAgent(agent);
@@ -88,7 +83,9 @@ export const AgentsPage: React.FC = () => {
     setIsLoadingAction(true);
     try {
       await toggleAgentActive(agent.id);
-      await fetchAgents();
+      // Reste sur la page courante avec les mêmes filtres — un fetchAgents()
+      // à vide écraserait la page affichée par la liste complète, non paginée.
+      applyFilters();
     } catch (error) {
       console.error('Erreur:', error);
     } finally {
@@ -98,11 +95,11 @@ export const AgentsPage: React.FC = () => {
 
   const handleDelete = async (agent: Agent) => {
     if (!window.confirm(`Supprimer définitivement ${agent.user.profile.firstName} ${agent.user.profile.lastName} ?`)) return;
-    
+
     setIsLoadingAction(true);
     try {
       await deleteAgent(agent.id);
-      await fetchAgents();
+      applyFilters();
     } catch (error) {
       console.error('Erreur:', error);
     } finally {
@@ -113,7 +110,7 @@ export const AgentsPage: React.FC = () => {
   const handleFormSuccess = () => {
     setShowForm(false);
     setEditingAgent(null);
-    //fetchAgents();
+    applyFilters();
   };
 
   const handleSelectAgent = (agent: Agent) => {
@@ -125,6 +122,7 @@ export const AgentsPage: React.FC = () => {
     setSelectedStatus('all');
     setSelectedDepartment('all');
     setSelectedRole('all');
+    applyFilters({ search: '', status: 'all', department: 'all', role: 'all' });
   };
 
   return (
@@ -160,7 +158,11 @@ export const AgentsPage: React.FC = () => {
               />
               <Select
                 value={selectedStatus}
-                onChange={(value) => setSelectedStatus(value as UserStatus | 'all')}
+                onChange={(value) => {
+                  const status = value as UserStatus | 'all';
+                  setSelectedStatus(status);
+                  applyFilters({ status });
+                }}
                 options={[
                   { value: 'all', label: 'Tous les statuts' },
                   { value: UserStatus.VERIFIED, label: 'Vérifiés' },
@@ -171,7 +173,11 @@ export const AgentsPage: React.FC = () => {
               />
               <Select
                 value={selectedDepartment}
-                onChange={(value) => setSelectedDepartment(value as AgentDepartment | 'all')}
+                onChange={(value) => {
+                  const department = value as AgentDepartment | 'all';
+                  setSelectedDepartment(department);
+                  applyFilters({ department });
+                }}
                 options={[
                   { value: 'all', label: 'Tous les départements' },
                   ...Object.entries(DEPARTMENT_LABELS).map(([value, label]) => ({
@@ -182,7 +188,11 @@ export const AgentsPage: React.FC = () => {
               />
               <Select
                 value={selectedRole}
-                onChange={(value) => setSelectedRole(value as RoleName | 'all')}
+                onChange={(value) => {
+                  const role = value as RoleName | 'all';
+                  setSelectedRole(role);
+                  applyFilters({ role });
+                }}
                 options={[
                   { value: 'all', label: 'Tous les rôles' },
                   { value: RoleName.AMBASSADOR, label: 'Ambassadeur' },
@@ -212,6 +222,18 @@ export const AgentsPage: React.FC = () => {
             onToggleActive={handleToggleActive}
             showActions={can(PermissionCode.USER_UPDATE)}
           />
+
+          {agentsMeta && agentsMeta.totalPages > 1 && (
+            <Card className="px-4 py-3">
+              <Pagination
+                currentPage={agentsMeta.page}
+                totalPages={agentsMeta.totalPages}
+                onPageChange={setAgentsPage}
+                itemsPerPage={agentsMeta.limit}
+                totalItems={agentsMeta.total}
+              />
+            </Card>
+          )}
         </div>
       </div>
 

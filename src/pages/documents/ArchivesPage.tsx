@@ -20,9 +20,12 @@ import { DocStatus, DocumentFilters } from '../../types';
 export const ArchivesPage: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { 
-    documents, 
-    fetchDocuments, 
+  const {
+    documents,
+    documentsMeta,
+    documentsPage,
+    setDocumentsPage,
+    fetchDocuments,
     isLoading,
     downloadDocument,
     archiveDocument,
@@ -105,9 +108,12 @@ export const ArchivesPage: React.FC = () => {
     }
   };
 
+  // Le serveur filtre déjà par status=EXPIRED (voir `filters` ci-dessus) —
+  // ce filtre local est redondant mais inoffensif, gardé par prudence.
   const archivedDocs = documents.filter(
     d => d.status === DocStatus.EXPIRED
   );
+  const archivedTotal = documentsMeta?.total ?? archivedDocs.length;
 
   return (
     <PermissionGuard 
@@ -129,7 +135,7 @@ export const ArchivesPage: React.FC = () => {
                   Archives
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  {archivedDocs.length} document{archivedDocs.length > 1 ? 's' : ''} archivé{archivedDocs.length > 1 ? 's' : ''}
+                  {archivedTotal} document{archivedTotal > 1 ? 's' : ''} archivé{archivedTotal > 1 ? 's' : ''}
                 </p>
               </div>
             </div>
@@ -153,7 +159,7 @@ export const ArchivesPage: React.FC = () => {
             onChange={handleFilterChange}
             availableFilters={['type', 'category', 'date']}
             showCount
-            totalCount={archivedDocs.length}
+            totalCount={archivedTotal}
           />
 
           {/* Liste */}
@@ -164,6 +170,7 @@ export const ArchivesPage: React.FC = () => {
             onDownload={handleDownload}
             showOwnerColumn={true}
             emptyMessage="Aucun document archivé"
+            serverPagination={{ page: documentsPage, meta: documentsMeta, onPageChange: setDocumentsPage }}
           />
 
           {/* Avertissement */}

@@ -11,6 +11,7 @@ import { Table, TableHeader, TableRow, TableBody, TableCell } from '../ui/table'
 import { Pagination } from '../ui/pagination';
 import { DocumentStatusBadge } from './DocumentStatusBadge';
 import { DocumentGED } from '../../types/document';
+import { PaginationMeta } from '../../types/api';
 import { formatDateShort, formatFileSize } from '../../lib/date';
 import { documentTypeLabels } from '../../config/document-labels';
 
@@ -28,6 +29,18 @@ interface DocumentListProps {
   showActions?: boolean;
   onDownload?: (doc: DocumentGED) => void;
   onView?: (doc: DocumentGED) => void;
+  /**
+   * Quand `documents` est déjà UNE page renvoyée par le serveur (voir
+   * useDocuments().documentsMeta) : le composant affiche cette page telle
+   * quelle au lieu de re-découper localement tout le tableau reçu — sinon,
+   * avec un tableau déjà limité à une page, `totalPages` retomberait
+   * toujours à 1 et masquerait silencieusement le reste des documents.
+   */
+  serverPagination?: {
+    page: number;
+    meta: PaginationMeta | null;
+    onPageChange: (page: number) => void;
+  };
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -41,8 +54,11 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   showActions = true,
   onDownload,
   onView,
+  serverPagination,
 }) => {
-  const [currentPage, setCurrentPage] = useState(1);
+  const [localPage, setLocalPage] = useState(1);
+  const currentPage = serverPagination ? serverPagination.page : localPage;
+  const setCurrentPage = serverPagination ? serverPagination.onPageChange : setLocalPage;
   const [sortField, setSortField] = useState<keyof DocumentGED>('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
@@ -73,10 +89,11 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     return 0;
   });
 
-  const paginatedDocs = sortedDocuments.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  // En pagination serveur, `documents` EST déjà la page courante — inutile
+  // (et faux, vu la taille du tableau reçu) de la redécouper localement.
+  const paginatedDocs = serverPagination
+    ? sortedDocuments
+    : sortedDocuments.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   if (isLoading) {
     return (
@@ -217,7 +234,18 @@ export const DocumentList: React.FC<DocumentListProps> = ({
         </Table>
       </div>
 
-      {documents.length > ITEMS_PER_PAGE && (
+      {serverPagination?.meta && serverPagination.meta.totalPages > 1 && (
+        <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+          <Pagination
+            currentPage={serverPagination.meta.page}
+            totalPages={serverPagination.meta.totalPages}
+            onPageChange={setCurrentPage}
+            itemsPerPage={serverPagination.meta.limit}
+            totalItems={serverPagination.meta.total}
+          />
+        </div>
+      )}
+      {!serverPagination && documents.length > ITEMS_PER_PAGE && (
         <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
           <Pagination
             currentPage={currentPage}

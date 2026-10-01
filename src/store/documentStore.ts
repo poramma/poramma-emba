@@ -47,6 +47,9 @@ import {
   GeneratedDocumentPayload,
   GeneratedDocumentType,
 } from '../types';
+import { PaginationMeta } from '../types/api';
+
+const DOCUMENTS_PAGE_SIZE = 10;
 
 // ============================================================
 // MOCK DATA — Documents générés uniquement (pas encore câblés au backend —
@@ -92,6 +95,8 @@ const MOCK_GENERATED_DOCUMENTS: GeneratedDocument[] = [
 
 interface DocumentState {
   documents: DocumentGED[];
+  documentsMeta: PaginationMeta | null;
+  documentsPage: number;
   selectedDocument: DocumentGED | null;
   versions: DocumentVersion[];
   filters: DocumentFilters;
@@ -106,7 +111,8 @@ interface DocumentState {
   uploadProgress: number;
 
   // Actions — documents étudiants
-  fetchDocuments: (filters?: DocumentFilters) => Promise<void>;
+  fetchDocuments: (filters?: DocumentFilters, page?: number) => Promise<void>;
+  setDocumentsPage: (page: number) => void;
   fetchDocumentsByDemande: (demandeId: string) => Promise<void>;
   fetchDocumentById: (id: string) => Promise<DocumentGED | null>;
   uploadDocument: (payload: DocumentUploadPayload) => Promise<DocumentGED>;
@@ -150,6 +156,8 @@ interface DocumentState {
 export const useDocumentStore = create<DocumentState>()((set, get) => ({
   // État initial
   documents: [],
+  documentsMeta: null,
+  documentsPage: 1,
   selectedDocument: null,
   versions: [],
   filters: {},
@@ -184,26 +192,31 @@ export const useDocumentStore = create<DocumentState>()((set, get) => ({
    * Query: filtres (ownerUserId, type, categoryId, status, reviewedBy,
    *        subServiceId, isExpiringSoon, dateFrom, dateTo, search)
    */
-  fetchDocuments: async (filters = {}) => {
+  fetchDocuments: async (filters = {}, page = 1) => {
     // Remplace intégralement les filtres actifs — chaque appelant passe déjà
     // l'objet de filtres complet (page de filtres locale) ; fusionner avec
     // `get().filters` empêchait un `fetchDocuments({})` (réinitialisation)
     // d'effacer un filtre déjà actif, puisque `{}` ne "retire" aucune clé.
     const mergedFilters = filters;
-    set({ isLoading: true, error: null, filters: mergedFilters });
+    set({ isLoading: true, error: null, filters: mergedFilters, documentsPage: page });
 
     try {
-      // isExpiringSoon/reviewedBy/dateFrom/dateTo/subServiceId ne sont pas
-      // (encore) des filtres serveur — le backend ne supporte que status/
-      // type/categoryId/ownerUserId/search pour l'instant (voir
-      // documents.service.ts listDocuments) ; le reste se filtre ici sur le
-      // résultat en attendant.
+      // isExpiringSoon/reviewedBy/subServiceId ne sont pas (encore) des
+      // filtres serveur — le backend ne supporte que status/type/categoryId/
+      // ownerUserId/search/dateFrom/dateTo (voir documents.service.ts
+      // listDocuments) ; le reste se filtre ici sur le résultat en attendant.
+      // dateFrom/dateTo sont eux passés au serveur : filtrer une page déjà
+      // paginée côté client désynchroniserait le total/les pages affichées.
       const { data } = await api.get('/documents', {
         params: {
           status: mergedFilters.status,
           type: mergedFilters.type,
           categoryId: mergedFilters.categoryId,
           ownerUserId: mergedFilters.ownerUserId,
+          dateFrom: mergedFilters.dateFrom,
+          dateTo: mergedFilters.dateTo,
+          page,
+          limit: DOCUMENTS_PAGE_SIZE,
         },
       });
       let filtered = data.data as DocumentGED[];
@@ -218,14 +231,8 @@ export const useDocumentStore = create<DocumentState>()((set, get) => ({
           (d) => d.expiryDate && new Date(d.expiryDate) <= in30Days && new Date(d.expiryDate) >= new Date()
         );
       }
-      if (mergedFilters.dateFrom) {
-        filtered = filtered.filter((d) => d.createdAt >= mergedFilters.dateFrom!);
-      }
-      if (mergedFilters.dateTo) {
-        filtered = filtered.filter((d) => d.createdAt <= mergedFilters.dateTo!);
-      }
 
-      set({ documents: filtered, isLoading: false });
+      set({ documents: filtered, documentsMeta: data.meta ?? null, isLoading: false });
 
     } catch (err) {
       set({
@@ -233,6 +240,10 @@ export const useDocumentStore = create<DocumentState>()((set, get) => ({
         error: err instanceof Error ? err.message : 'Erreur de chargement des documents',
       });
     }
+  },
+
+  setDocumentsPage: (page) => {
+    get().fetchDocuments(get().filters, page);
   },
 
   /**

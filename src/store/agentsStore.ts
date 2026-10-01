@@ -4,6 +4,16 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { Agent, AgentDepartment, UserStatus, RoleName } from '../types/auth';
 import { api } from '../lib/api';
+import { PaginationMeta } from '../types/api';
+
+export interface AgentListQuery {
+  search?: string;
+  status?: UserStatus | 'all';
+  department?: AgentDepartment | 'all';
+  role?: RoleName | 'all';
+  page?: number;
+  limit?: number;
+}
 
 // ============================================================
 // INTERFACE DU STORE
@@ -11,6 +21,11 @@ import { api } from '../lib/api';
 
 interface AgentsState {
   agents: Agent[];
+  // Rempli uniquement quand fetchAgents() a reçu page/limit (voir plus bas) —
+  // null sinon, pour signaler "pas de pagination active" aux pages qui
+  // utilisent la liste complète comme source d'un sélecteur.
+  agentsMeta: PaginationMeta | null;
+  agentsPage: number;
   selectedAgent: Agent | null;
   isLoading: boolean;
   error: string | null;
@@ -22,7 +37,11 @@ interface AgentsState {
   selectedRole: RoleName | 'all';
 
   // Actions: Lecture
-  fetchAgents: () => Promise<void>;
+  // Sans argument (comme avant) : liste complète, pour les sélecteurs
+  // (affectation, messagerie, partage de document...). Avec `query.page`/
+  // `query.limit` : active la pagination serveur — voir AgentsPage.tsx.
+  fetchAgents: (query?: AgentListQuery) => Promise<void>;
+  setAgentsPage: (page: number) => void;
   fetchAgent: (id: string) => Promise<void>;
   selectAgent: (agent: Agent | null) => void;
 
@@ -79,6 +98,8 @@ export const useAgentsStore = create<AgentsState>()(
   immer((set, get) => ({
     // État initial
     agents: [],
+    agentsMeta: null,
+    agentsPage: 1,
     selectedAgent: null,
     isLoading: false,
     error: null,
@@ -149,12 +170,21 @@ export const useAgentsStore = create<AgentsState>()(
     // ACTIONS: LECTURE
     // ============================================================
 
-    fetchAgents: async () => {
-      set((state) => { state.isLoading = true; state.error = null; });
+    fetchAgents: async (query = {}) => {
+      set((state) => { state.isLoading = true; state.error = null; state.agentsPage = query.page ?? 1; });
 
       try {
-        const { data } = await api.get('/agents');
-        set((state) => { state.agents = data.data; });
+        const { data } = await api.get('/agents', {
+          params: {
+            search: query.search || undefined,
+            status: query.status && query.status !== 'all' ? query.status : undefined,
+            department: query.department && query.department !== 'all' ? query.department : undefined,
+            role: query.role && query.role !== 'all' ? query.role : undefined,
+            page: query.page,
+            limit: query.limit,
+          },
+        });
+        set((state) => { state.agents = data.data; state.agentsMeta = data.meta ?? null; });
       } catch (err) {
         set((state) => {
           state.error = err instanceof Error ? err.message : 'Erreur de chargement';
@@ -162,6 +192,18 @@ export const useAgentsStore = create<AgentsState>()(
       } finally {
         set((state) => { state.isLoading = false; });
       }
+    },
+
+    setAgentsPage: (page: number) => {
+      const { searchQuery, selectedStatus, selectedDepartment, selectedRole, agentsMeta } = get();
+      get().fetchAgents({
+        search: searchQuery,
+        status: selectedStatus,
+        department: selectedDepartment,
+        role: selectedRole,
+        page,
+        limit: agentsMeta?.limit ?? 20,
+      });
     },
 
     fetchAgent: async (id: string) => {

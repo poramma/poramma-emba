@@ -1,12 +1,16 @@
 // src/hooks/useAgents.ts
 
 import { useCallback } from 'react';
-import { useAgentsStore } from '../store/agentsStore';
+import { useAgentsStore, AgentListQuery } from '../store/agentsStore';
 import { Agent, AgentDepartment, UserStatus, RoleName } from '../types/auth';
+import { PaginationMeta } from '../types/api';
 
 interface UseAgentsReturn {
   // État
   agents: Agent[];
+  agentsMeta: PaginationMeta | null;
+  agentsPage: number;
+  setAgentsPage: (page: number) => void;
   selectedAgent: Agent | null;
   isLoading: boolean;
   error: string | null;
@@ -22,14 +26,14 @@ interface UseAgentsReturn {
   getStats: () => any;
   
   // Actions
-  fetchAgents: () => Promise<void>;
+  fetchAgents: (query?: AgentListQuery) => Promise<void>;
   fetchAgent: (id: string) => Promise<void>;
   selectAgent: (agent: Agent | null) => void;
   createAgent: (data: any) => Promise<Agent>;
   updateAgent: (id: string, data: any) => Promise<Agent>;
   deleteAgent: (id: string) => Promise<void>;
   toggleAgentActive: (id: string) => Promise<void>;
-  refreshAgents: () => Promise<void>;
+  refreshAgents: (query?: AgentListQuery) => Promise<void>;
   
   // Filtres actions
   setSearchQuery: (query: string) => void;
@@ -44,6 +48,9 @@ export const useAgents = (): UseAgentsReturn => {
 
   const {
     agents,
+    agentsMeta,
+    agentsPage,
+    setAgentsPage,
     selectedAgent,
     isLoading,
     error,
@@ -69,13 +76,16 @@ export const useAgents = (): UseAgentsReturn => {
   const filteredAgents = store.filteredAgents;
   const getStats = useCallback(() => store.getStats(), [store.getStats]);
 
-  const refreshAgents = useCallback(async () => {
-    await fetchAgents();
+  const refreshAgents = useCallback(async (query?: AgentListQuery) => {
+    await fetchAgents(query);
   }, [fetchAgents]);
 
   return {
     // État
     agents,
+    agentsMeta,
+    agentsPage,
+    setAgentsPage,
     selectedAgent,
     isLoading,
     error,

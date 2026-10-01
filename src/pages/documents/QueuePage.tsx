@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { PermissionGuard } from '../../components/auth/PermissionGuard';
 import { DocumentQueueTable } from '../../components/documents/queue/DocumentQueueTable';
+import { Pagination } from '../../components/ui/pagination';
 import { useDocuments } from '../../hooks/useDocuments';
 import { usePermission } from '../../hooks/usePermission';
 import { useToast } from '../../hooks/useToast';
@@ -21,6 +22,8 @@ export const QueuePage: React.FC = () => {
   const { toast } = useToast();
   const {
     documents,
+    documentsMeta,
+    setDocumentsPage,
     stats,
     fetchDocuments,
     fetchStats,
@@ -134,7 +137,7 @@ export const QueuePage: React.FC = () => {
                   File de vérification
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  {displayedDocs.length} document{displayedDocs.length > 1 ? 's' : ''} affiché{displayedDocs.length > 1 ? 's' : ''}
+                  {documentsMeta?.total ?? displayedDocs.length} document{(documentsMeta?.total ?? displayedDocs.length) > 1 ? 's' : ''} au total
                 </p>
               </div>
             </div>
@@ -164,6 +167,18 @@ export const QueuePage: React.FC = () => {
             onQuickReject={handleQuickReject}
             onViewDetail={handleViewDetail}
           />
+
+          {documentsMeta && documentsMeta.totalPages > 1 && (
+            <Card className="px-4 py-3">
+              <Pagination
+                currentPage={documentsMeta.page}
+                totalPages={documentsMeta.totalPages}
+                onPageChange={setDocumentsPage}
+                itemsPerPage={documentsMeta.limit}
+                totalItems={documentsMeta.total}
+              />
+            </Card>
+          )}
 
           {/* Aide */}
           {!canValidate && (
