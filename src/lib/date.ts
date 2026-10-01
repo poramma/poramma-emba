@@ -111,8 +111,18 @@ export function timeAgo(date: string | Date): string {
     return `il y a ${diffMin} min${diffMin > 1 ? 's' : ''}`;
   } else if (diffHour < 24) {
     return `il y a ${diffHour} h${diffHour > 1 ? 's' : ''}`;
-  } else if (diffDay < 30) {
+  } else if (diffDay < 7) {
     return `il y a ${diffDay} j${diffDay > 1 ? 's' : ''}`;
+  } else if (diffDay < 30) {
+    // Au-delà d'une semaine, on compte en semaines plutôt qu'en jours :
+    // "il y a une sem" (7j pile), "plus d'une sem" (8-13j), "il y a 2 sem"
+    // (14j pile), "plus de 2 sem" (15-20j), etc.
+    const weeks = Math.floor(diffDay / 7);
+    const exact = diffDay % 7 === 0;
+    if (weeks === 1) {
+      return exact ? 'il y a une sem' : "il y a plus d'une sem";
+    }
+    return exact ? `il y a ${weeks} sem` : `il y a plus de ${weeks} sem`;
   } else if (diffMonth < 12) {
     return `il y a ${diffMonth} mois`;
   } else {

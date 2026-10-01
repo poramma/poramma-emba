@@ -13,6 +13,7 @@ import { Modal } from '../../components/ui/modal';
 import { TextArea } from '../../components/ui/textarea';
 import { Skeleton } from '../../components/ui/skeleton';
 import { PermissionGuard } from '../../components/auth/PermissionGuard';
+import { DocumentViewer } from '../../components/demandes/DocumentViewer';
 import { usePermission } from '../../hooks/usePermission';
 import { useEtudiants } from '../../hooks/useEtudiants';
 import { useToast } from '../../hooks/useToast';
@@ -250,30 +251,13 @@ const EtudiantDetailPage: React.FC = () => {
             <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <FileText className="w-4 h-4" /> Documents ({documents.length})
             </h3>
-            {documents.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">Aucun document soumis.</p>
-            ) : (
-              <div className="space-y-2">
-                {documents.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <FileText className="w-4 h-4 text-gray-400" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{doc.type}</p>
-                        <p className="text-xs text-gray-400">{formatDateShort(doc.createdAt)}</p>
-                      </div>
-                    </div>
-                    <Badge
-                      color={doc.status === 'ACCEPTED' ? 'success' : doc.status === 'REJECTED' ? 'error' : 'warning'}
-                      variant="light"
-                      size="xs"
-                    >
-                      {doc.status}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Aperçu (image/PDF) et téléchargement — même composant que sur une demande.
+                La validation de pièce n'est pas branchée ici : elle mettrait à jour le
+                documentStore, pas la liste de cette page, et laisserait le statut affiché
+                périmé tant que la page n'est pas rechargée. */}
+            {/* demandeId n'est pas utilisé par le composant (aucune demande ici) — requis par son
+                type mais jamais lu dans son implémentation ; e.id sert de valeur inoffensive. */}
+            <DocumentViewer demandeId={e.id} documents={documents} />
           </Card>
 
           <Card className="p-5">
