@@ -14,6 +14,8 @@ import { TextArea } from '../../components/ui/textarea';
 import { Modal } from '../../components/ui/modal';
 import { api } from '../../lib/api';
 import { formatDateShort, timeAgo } from '../../lib/date';
+import { formatPhoneInput, phoneError } from '../../lib/phone';
+import { useDebouncedSearch } from '../../hooks/useDebouncedSearch';
 import {
   apiErrorMessage,
   receptionApi,
@@ -108,6 +110,7 @@ const NewWalkInModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -116,6 +119,7 @@ const NewWalkInModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated
       setQuery('');
       setHits([]);
       setError(null);
+      setFieldErrors({});
     }
   }, [isOpen]);
 
@@ -131,6 +135,16 @@ const NewWalkInModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated
     }
   };
 
+  // Recherche instantanée : résultats affichés peu après la dernière frappe,
+  // sans clic sur un bouton "Chercher".
+  useDebouncedSearch(query, (text) => {
+    if (text.length < 2) {
+      setHits([]);
+      return;
+    }
+    search();
+  });
+
   const pick = (m: MemberHit) => {
     setMember(m);
     setHits([]);
@@ -138,10 +152,19 @@ const NewWalkInModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated
     setForm((f) => ({ ...f, visitorName: m.name, visitorPhone: m.phone ?? f.visitorPhone }));
   };
 
+  const validate = () => {
+    const next: Record<string, string> = {};
+    if (!form.visitorName.trim() && !member) next.visitorName = 'Indiquez le nom du visiteur.';
+    if (form.subject.trim().length < 3) next.subject = 'Décrivez la demande en quelques mots.';
+    const phoneMsg = phoneError(form.visitorPhone, false);
+    if (phoneMsg) next.visitorPhone = phoneMsg;
+    setFieldErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
   const submit = async () => {
     setError(null);
-    if (!form.visitorName.trim() && !member) return setError('Indiquez le nom du visiteur.');
-    if (form.subject.trim().length < 3) return setError('Décrivez la demande en quelques mots.');
+    if (!validate()) return;
     const payload: CreateWalkInPayload = {
       visitorName: form.visitorName.trim() || undefined,
       visitorPhone: form.visitorPhone.trim() || null,
@@ -184,25 +207,19 @@ const NewWalkInModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated
             </div>
           ) : (
             <>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Input
-                    placeholder="Nom, email, téléphone ou INUE…"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        search();
-                      }
-                    }}
-                    startIcon={<Search className="h-4 w-4" />}
-                  />
-                </div>
-                <Button variant="outline" onClick={search} disabled={searching || query.trim().length < 2}>
-                  Chercher
-                </Button>
-              </div>
+              <Input
+                placeholder="Nom, email, téléphone ou INUE… (résultats instantanés)"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    search();
+                  }
+                }}
+                startIcon={<Search className="h-4 w-4" />}
+                endIcon={searching ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" /> : undefined}
+              />
               {hits.length > 0 && (
                 <ul className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
                   {hits.map((h) => (
@@ -220,8 +237,26 @@ const NewWalkInModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Input label="Nom du visiteur" value={form.visitorName} onChange={(e) => setForm({ ...form, visitorName: e.target.value })} placeholder="Nom et prénom" />
-          <Input label="Téléphone" value={form.visitorPhone} onChange={(e) => setForm({ ...form, visitorPhone: e.target.value })} placeholder="+212 6…" />
+          <div>
+            <Input label="Nom du visiteur" value={form.visitorName} onChange={(e) => setForm({ ...form, visitorName: e.target.value })} placeholder="Nom et prénom" error={!!fieldErrors.visitorName} />
+            {fieldErrors.visitorName && <p className="mt-1 text-sm text-red-600">{fieldErrors.visitorName}</p>}
+          </div>
+          <div>
+            <Input
+              label="Téléphone"
+              type="tel"
+              value={form.visitorPhone}
+              onChange={(e) => {
+                const visitorPhone = formatPhoneInput(e.target.value);
+                setForm({ ...form, visitorPhone });
+                if (fieldErrors.visitorPhone) setFieldErrors((fe) => ({ ...fe, visitorPhone: phoneError(visitorPhone, false) ?? '' }));
+              }}
+              onBlur={() => setFieldErrors((fe) => ({ ...fe, visitorPhone: phoneError(form.visitorPhone, false) ?? '' }))}
+              placeholder="+212 6…"
+              error={!!fieldErrors.visitorPhone}
+            />
+            {fieldErrors.visitorPhone && <p className="mt-1 text-sm text-red-600">{fieldErrors.visitorPhone}</p>}
+          </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Nature</label>
             <Select
@@ -245,7 +280,8 @@ const NewWalkInModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated
 
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Objet de la demande</label>
-          <TextArea rows={3} value={form.subject} onChange={(v) => setForm({ ...form, subject: v.slice(0, 1000) })} placeholder="Ce que le visiteur demande, en quelques mots" />
+          <TextArea rows={3} value={form.subject} onChange={(v) => setForm({ ...form, subject: v.slice(0, 1000) })} placeholder="Ce que le visiteur demande, en quelques mots" error={!!fieldErrors.subject} />
+          {fieldErrors.subject && <p className="mt-1 text-sm text-red-600">{fieldErrors.subject}</p>}
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Notes internes (facultatif)</label>
@@ -288,6 +324,7 @@ const UrgenceModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated: 
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -297,6 +334,7 @@ const UrgenceModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated: 
       setQuery('');
       setHits([]);
       setError(null);
+      setFieldErrors({});
     }
   }, [isOpen]);
 
@@ -312,17 +350,36 @@ const UrgenceModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated: 
     }
   };
 
+  // Recherche instantanée : résultats affichés peu après la dernière frappe,
+  // sans clic sur un bouton "Chercher".
+  useDebouncedSearch(query, (text) => {
+    if (text.length < 2) {
+      setHits([]);
+      return;
+    }
+    search();
+  });
+
+  const validate = () => {
+    const next: Record<string, string> = {};
+    if (mode === 'visitor') {
+      if (!form.lastName.trim()) next.lastName = 'Le nom est obligatoire.';
+      if (!form.firstName.trim()) next.firstName = 'Le prénom est obligatoire.';
+      const phoneMsg = phoneError(form.phone, true); // obligatoire : seul contact de la personne sans compte
+      if (phoneMsg) next.phone = phoneMsg;
+      if (!form.city.trim()) next.city = 'La ville est obligatoire.';
+    }
+    if (!form.subServiceId) next.subServiceId = 'Choisissez le service concerné.';
+    if (form.motif.trim().length < 3) next.motif = 'Indiquez le motif du rendez-vous.';
+    if (form.urgenceJustification.trim().length < 3) next.urgenceJustification = "Justifiez l'urgence.";
+    setFieldErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
   const submit = async () => {
     setError(null);
     if (mode === 'member' && !member) return setError('Recherchez et sélectionnez le membre.');
-    if (mode === 'visitor') {
-      if (!form.lastName.trim() || !form.firstName.trim()) return setError('Le nom et le prénom sont obligatoires.');
-      if (form.phone.trim().length < 6) return setError('Le téléphone est obligatoire.');
-      if (!form.city.trim()) return setError('La ville est obligatoire.');
-    }
-    if (!form.subServiceId) return setError('Choisissez le service concerné.');
-    if (form.motif.trim().length < 3) return setError('Indiquez le motif du rendez-vous.');
-    if (form.urgenceJustification.trim().length < 3) return setError("Justifiez l'urgence.");
+    if (!validate()) return;
 
     const payload: CreateUrgencePayload = {
       subServiceId: form.subServiceId,
@@ -366,10 +423,34 @@ const UrgenceModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated: 
 
         {mode === 'visitor' ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Nom *" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="Nom de famille" />
-            <Input label="Prénom *" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="Prénom" />
-            <Input label="Téléphone *" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+212 6…" />
-            <Input label="Ville *" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Ville de résidence" />
+            <div>
+              <Input label="Nom *" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="Nom de famille" error={!!fieldErrors.lastName} />
+              {fieldErrors.lastName && <p className="mt-1 text-sm text-red-600">{fieldErrors.lastName}</p>}
+            </div>
+            <div>
+              <Input label="Prénom *" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="Prénom" error={!!fieldErrors.firstName} />
+              {fieldErrors.firstName && <p className="mt-1 text-sm text-red-600">{fieldErrors.firstName}</p>}
+            </div>
+            <div>
+              <Input
+                label="Téléphone *"
+                type="tel"
+                value={form.phone}
+                onChange={(e) => {
+                  const phone = formatPhoneInput(e.target.value);
+                  setForm({ ...form, phone });
+                  if (fieldErrors.phone) setFieldErrors((fe) => ({ ...fe, phone: phoneError(phone, true) ?? '' }));
+                }}
+                onBlur={() => setFieldErrors((fe) => ({ ...fe, phone: phoneError(form.phone, true) ?? '' }))}
+                placeholder="+212 6…"
+                error={!!fieldErrors.phone}
+              />
+              {fieldErrors.phone && <p className="mt-1 text-sm text-red-600">{fieldErrors.phone}</p>}
+            </div>
+            <div>
+              <Input label="Ville *" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Ville de résidence" error={!!fieldErrors.city} />
+              {fieldErrors.city && <p className="mt-1 text-sm text-red-600">{fieldErrors.city}</p>}
+            </div>
           </div>
         ) : member ? (
           <div className="flex items-center justify-between rounded-lg bg-green-50 p-2 text-sm dark:bg-green-900/20">
@@ -383,25 +464,19 @@ const UrgenceModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated: 
           </div>
         ) : (
           <div>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <Input
-                  placeholder="Nom, email, téléphone ou INUE…"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      search();
-                    }
-                  }}
-                  startIcon={<Search className="h-4 w-4" />}
-                />
-              </div>
-              <Button variant="outline" onClick={search} disabled={searching || query.trim().length < 2}>
-                Chercher
-              </Button>
-            </div>
+            <Input
+              placeholder="Nom, email, téléphone ou INUE… (résultats instantanés)"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  search();
+                }
+              }}
+              startIcon={<Search className="h-4 w-4" />}
+              endIcon={searching ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" /> : undefined}
+            />
             {hits.length > 0 && (
               <ul className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
                 {hits.map((h) => (
@@ -427,11 +502,16 @@ const UrgenceModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated: 
         <div>
           <label className={label}>Service concerné *</label>
           <Select label="Service concerné" placeholder="Sélectionnez un service" value={form.subServiceId} onChange={(v) => setForm({ ...form, subServiceId: v })} options={subServices} />
+          {fieldErrors.subServiceId && <p className="mt-1 text-sm text-red-600">{fieldErrors.subServiceId}</p>}
         </div>
-        <Input label="Motif du rendez-vous *" value={form.motif} onChange={(e) => setForm({ ...form, motif: e.target.value })} placeholder="Raison du rendez-vous…" />
+        <div>
+          <Input label="Motif du rendez-vous *" value={form.motif} onChange={(e) => setForm({ ...form, motif: e.target.value })} placeholder="Raison du rendez-vous…" error={!!fieldErrors.motif} />
+          {fieldErrors.motif && <p className="mt-1 text-sm text-red-600">{fieldErrors.motif}</p>}
+        </div>
         <div>
           <label className={label}>Justification de l'urgence *</label>
-          <TextArea rows={3} value={form.urgenceJustification} onChange={(v) => setForm({ ...form, urgenceJustification: v.slice(0, 1000) })} placeholder="Pourquoi cette personne doit-elle être reçue en urgence ?" />
+          <TextArea rows={3} value={form.urgenceJustification} onChange={(v) => setForm({ ...form, urgenceJustification: v.slice(0, 1000) })} placeholder="Pourquoi cette personne doit-elle être reçue en urgence ?" error={!!fieldErrors.urgenceJustification} />
+          {fieldErrors.urgenceJustification && <p className="mt-1 text-sm text-red-600">{fieldErrors.urgenceJustification}</p>}
         </div>
 
         <div className="flex justify-end gap-2 border-t border-gray-100 pt-4 dark:border-gray-700">

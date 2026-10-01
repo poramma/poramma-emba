@@ -12,6 +12,8 @@ import { Modal } from '../ui/modal';
 import { useAgents } from '../../hooks/useAgents';
 import { useRoles } from '../../hooks/useRoles';
 import { usePermission } from '../../hooks/usePermission';
+import { formatPhoneInput, phoneError } from '../../lib/phone';
+import { emailError } from '../../lib/email';
 import { Agent, AgentDepartment, RoleName, UserStatus } from '../../types/auth';
 
 interface AgentFormProps {
@@ -69,8 +71,20 @@ export const AgentForm: React.FC<AgentFormProps> = ({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Champs déjà quittés une fois (blur) : au-delà, l'email/le téléphone se
+  // revalident à chaque frappe, pas seulement à la soumission.
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [password, setPassword] = useState('');
+
+  const handleBlurEmail = () => {
+    setTouched((t) => ({ ...t, email: true }));
+    setErrors((e) => ({ ...e, email: emailError(formData.email, true) ?? '' }));
+  };
+  const handleBlurPhone = () => {
+    setTouched((t) => ({ ...t, phone: true }));
+    setErrors((e) => ({ ...e, phone: phoneError(formData.phone, false) ?? '' }));
+  };
 
   useEffect(() => {
     fetchRoles();
@@ -112,13 +126,14 @@ export const AgentForm: React.FC<AgentFormProps> = ({
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     
-    if (!formData.email.trim()) newErrors.email = 'L\'email est requis';
-    if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-      newErrors.email = 'Email invalide';
-    }
+    const emailMsg = emailError(formData.email, true);
+    if (emailMsg) newErrors.email = emailMsg;
     if (!formData.firstName.trim()) newErrors.firstName = 'Le prénom est requis';
     if (!formData.lastName.trim()) newErrors.lastName = 'Le nom est requis';
     if (!formData.matricule.trim()) newErrors.matricule = 'Le matricule est requis';
+    const phoneMsg = phoneError(formData.phone, false); // facultatif
+    if (phoneMsg) newErrors.phone = phoneMsg;
+    setTouched((t) => ({ ...t, email: true, phone: true }));
     if (!editData && !password) newErrors.password = 'Le mot de passe est requis pour la création';
     if (password && password.length < 8) {
       newErrors.password = 'Le mot de passe doit faire au moins 8 caractères';
@@ -205,7 +220,12 @@ export const AgentForm: React.FC<AgentFormProps> = ({
             <Input
               type="email"
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onChange={(e) => {
+                const email = e.target.value;
+                setFormData({ ...formData, email });
+                if (touched.email) setErrors((err) => ({ ...err, email: emailError(email, true) ?? '' }));
+              }}
+              onBlur={handleBlurEmail}
               placeholder="agent@ambassade-mali.ma"
               startIcon={<Mail className="w-4 h-4" />}
               error={!!errors.email}
@@ -276,11 +296,21 @@ export const AgentForm: React.FC<AgentFormProps> = ({
               Téléphone
             </label>
             <Input
+              type="tel"
               value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              onChange={(e) => {
+                const phone = formatPhoneInput(e.target.value);
+                setFormData({ ...formData, phone });
+                if (touched.phone) setErrors((err) => ({ ...err, phone: phoneError(phone, false) ?? '' }));
+              }}
+              onBlur={handleBlurPhone}
               placeholder="+212 6 00 00 00 00"
               startIcon={<Phone className="w-4 h-4" />}
+              error={!!errors.phone}
             />
+            {errors.phone && (
+              <p className="text-sm text-red-600 mt-1">{errors.phone}</p>
+            )}
           </div>
 
           {/* Matricule */}
