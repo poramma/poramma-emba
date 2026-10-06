@@ -3,7 +3,13 @@ import react from "@vitejs/plugin-react";
 import svgr from "vite-plugin-svgr";
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // En production uniquement : retire console.* et debugger du bundle (le
+  // développement local garde tous ses logs). Pour garder les erreurs, remplacer
+  // par pure: ["console.log", "console.debug", "console.info", "console.warn"].
+  esbuild: {
+    drop: command === "build" ? ["console", "debugger"] : [],
+  },
   plugins: [
     react(),
     svgr({
@@ -37,4 +43,4 @@ export default defineConfig({
   build: {
     sourcemap: true,
   },
-});
+}));
