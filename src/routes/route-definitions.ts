@@ -11,10 +11,10 @@ import { PermissionCode, RoleName } from '../types';
 
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
 const ForgotPasswordPage = lazy(() => import('../pages/auth/ForgotPasswordPage'));
-const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'));
-const DemandesListPage = lazy(() => import('../pages/demandes/DemandesListPage'));
-const DemandeDetailPage = lazy(() => import('../pages/demandes/DemandeDetailsPage'));
-const DemandeTraitementPage = lazy(() => import('../pages/demandes/DemandeTraitementPage'));
+const DashboardPage = lazy(() => import('../pages/Dashboard/DashboardPage'));
+const DemandesListPage = lazy(() => import('../pages/Demandes/DemandesListPage'));
+const DemandeDetailPage = lazy(() => import('../pages/Demandes/DemandeDetailsPage'));
+const DemandeTraitementPage = lazy(() => import('../pages/Demandes/DemandeTraitementPage'));
 const CalendrierPage = lazy(() => import('../pages/rendez-vous/CalendrierPage'));
 const DisponibilitesPage = lazy(() => import('../pages/rendez-vous/DisponibilitesPage'));
 const EtudiantsListPage = lazy(() => import('../pages/etudiants/EtudiantsListPage'));
