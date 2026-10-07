@@ -1,11 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Alert } from '../ui/alert';
 import { Eye, EyeOff, Mail, Lock, ShieldCheck } from 'lucide-react';
 import { RoleName } from '../../types';
+import { AuthAlert, AuthButton, AuthField, authLinkClass } from './AuthShell';
 
 export function LoginForm() {
   const navigate = useNavigate();
@@ -18,9 +16,9 @@ export function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
-    
+
     await login(email, password, rememberMe);
-    
+
     // Redirection post-login
     const user = useAuthStore.getState().user;
     if (user) {
@@ -35,88 +33,70 @@ export function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      {error && (
-        <Alert title="Erreur de Connexion" variant="destructive"
-            message={error}
-        />
-        
-        
-      )}
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {error && <AuthAlert variant="error" title="Erreur de connexion" message={error} />}
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Adresse email
-        </label>
-        <div className="relative">
-          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            type="email"
-            placeholder="agent@ambassade.ml"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="pl-10"
-            required
-          />
-        </div>
-      </div>
+      <AuthField
+        id="login-email"
+        label="Adresse email"
+        icon={Mail}
+        type="email"
+        name="email"
+        autoComplete="username"
+        placeholder="agent@ambassade.ml"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+      />
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Mot de passe
-        </label>
-        <div className="relative">
-          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            type={showPassword ? 'text' : 'password'}
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="pl-10 pr-10"
-            required
-          />
+      <AuthField
+        id="login-password"
+        label="Mot de passe"
+        icon={Lock}
+        type={showPassword ? 'text' : 'password'}
+        name="password"
+        autoComplete="current-password"
+        placeholder="••••••••"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+        trailing={
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+            aria-pressed={showPassword}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7f45]/50 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-gray-100 dark:focus-visible:ring-[#5fc389]/60"
           >
-            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
           </button>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <label htmlFor="login-remember" className="flex cursor-pointer items-center gap-2.5 text-sm text-gray-700 dark:text-gray-300">
           <input
+            id="login-remember"
             type="checkbox"
             checked={rememberMe}
             onChange={(e) => setRememberMe(e.target.checked)}
-            className="rounded border-gray-300"
+            className="h-4 w-4 rounded border-gray-400 accent-[#0b7f45] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7f45]/50 focus-visible:ring-offset-1 dark:border-gray-500 dark:focus-visible:ring-[#5fc389]/60 dark:focus-visible:ring-offset-gray-950"
           />
           Se souvenir de moi
         </label>
-        <button
-          type="button"
-          onClick={() => navigate('/reset-password')}
-          className="text-sm text-primary hover:underline"
-        >
+        <Link to="/reset-password" className={authLinkClass}>
           Mot de passe oublié ?
-        </button>
+        </Link>
       </div>
 
-      <Button type="submit" className="w-full" disabled={isLoading}>
-        {isLoading ? (
-          <span className="flex items-center gap-2">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-            Connexion...
-          </span>
-        ) : (
-          <span className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4" />
-            Se connecter
-          </span>
-        )}
-      </Button>
+      <AuthButton
+        type="submit"
+        loading={isLoading}
+        loadingLabel="Connexion..."
+        icon={<ShieldCheck className="h-4 w-4" aria-hidden="true" />}
+      >
+        Se connecter
+      </AuthButton>
     </form>
   );
 }

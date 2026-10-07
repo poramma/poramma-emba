@@ -6,10 +6,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Eye, EyeOff, KeyRound, Lock, Mail, ArrowLeft } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Alert } from '../../components/ui/alert';
+import { Eye, EyeOff, KeyRound, Lock, Mail, ArrowLeft } from 'lucide-react';
+import { AuthShell, AuthField, AuthButton, AuthAlert, authLinkClass } from '../../components/auth/AuthShell';
 import { api } from '../../lib/api';
 
 const RESEND_DELAY_SECONDS = 60;
@@ -77,117 +75,130 @@ export function ForgotPasswordPage() {
     }
   };
 
+  const subtitle =
+    step === 'email'
+      ? 'Saisissez votre adresse email : nous vous envoyons un code de vérification.'
+      : step === 'code'
+        ? 'Saisissez le code reçu par email puis choisissez un nouveau mot de passe.'
+        : 'Votre mot de passe a été modifié.';
+
+  const passwordToggle = (
+    <button
+      type="button"
+      onClick={() => setShowPassword(!showPassword)}
+      aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+      aria-pressed={showPassword}
+      className="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7f45]/50 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-gray-100 dark:focus-visible:ring-[#5fc389]/60"
+    >
+      {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+    </button>
+  );
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 dark:bg-gray-900">
-      <div className="w-full max-w-md">
-        <div className="space-y-6 rounded-2xl bg-white p-8 shadow-xl dark:bg-gray-800">
-          <div className="space-y-2 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10">
-              <Building2 className="h-8 w-8 text-primary" />
-            </div>
-            <h1 className="text-2xl font-bold">Mot de passe oublié</h1>
-            <p className="text-sm text-gray-500">
-              {step === 'email' && 'Saisissez votre adresse email : nous vous envoyons un code de vérification.'}
-              {step === 'code' && 'Saisissez le code reçu par email puis choisissez un nouveau mot de passe.'}
-              {step === 'done' && 'Votre mot de passe a été modifié.'}
-            </p>
-          </div>
+    <AuthShell title="Mot de passe oublié" subtitle={subtitle}>
+      <div className="space-y-6">
+        {error && <AuthAlert variant="error" title="Erreur" message={error} />}
+        {info && !error && <AuthAlert variant="info" title="Code envoyé" message={info} />}
 
-          {error && <Alert title="Erreur" variant="destructive" message={error} />}
-          {info && !error && <Alert title="Code envoyé" variant="info" message={info} />}
+        {step === 'email' && (
+          <form onSubmit={requestCode} className="space-y-6">
+            <AuthField
+              id="reset-email"
+              label="Adresse email"
+              icon={Mail}
+              type="email"
+              name="email"
+              autoComplete="username"
+              placeholder="agent@ambassade.ml"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <AuthButton type="submit" loading={busy} loadingLabel="Envoi…" disabled={!email.trim()}>
+              Recevoir le code
+            </AuthButton>
+          </form>
+        )}
 
-          {step === 'email' && (
-            <form onSubmit={requestCode} className="space-y-5">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Adresse email</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <Input type="email" placeholder="agent@ambassade.ml" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10" required />
-                </div>
-              </div>
-              <Button type="submit" className="w-full" disabled={busy || !email.trim()}>
-                {busy ? 'Envoi…' : 'Recevoir le code'}
-              </Button>
-            </form>
-          )}
+        {step === 'code' && (
+          <form onSubmit={submitReset} className="space-y-6">
+            <AuthField
+              id="reset-otp"
+              label="Code à 6 chiffres"
+              icon={KeyRound}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="123456"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              className="tracking-[0.4em]"
+              required
+            />
 
-          {step === 'code' && (
-            <form onSubmit={submitReset} className="space-y-5">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Code à 6 chiffres</label>
-                <div className="relative">
-                  <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <Input
-                    placeholder="123456"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="pl-10 tracking-[0.4em]"
-                    required
-                  />
-                </div>
-              </div>
+            <AuthField
+              id="reset-password"
+              label="Nouveau mot de passe"
+              icon={Lock}
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              placeholder="8 caractères minimum, lettres et chiffres"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              trailing={passwordToggle}
+            />
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nouveau mot de passe</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <Input
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    placeholder="8 caractères minimum, lettres et chiffres"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-10"
-                    required
-                  />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
+            <AuthField
+              id="reset-confirm"
+              label="Confirmer le mot de passe"
+              icon={Lock}
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+            />
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Confirmer le mot de passe</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <Input type={showPassword ? 'text' : 'password'} autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className="pl-10" required />
-                </div>
-              </div>
+            <AuthButton type="submit" loading={busy} loadingLabel="Enregistrement…">
+              Réinitialiser le mot de passe
+            </AuthButton>
 
-              <Button type="submit" className="w-full" disabled={busy}>
-                {busy ? 'Enregistrement…' : 'Réinitialiser le mot de passe'}
-              </Button>
-
-              <button
-                type="button"
-                onClick={() => requestCode()}
-                disabled={busy || cooldown > 0}
-                className="w-full text-sm text-primary hover:underline disabled:cursor-not-allowed disabled:text-gray-400 disabled:no-underline"
-              >
-                {cooldown > 0 ? `Renvoyer le code dans ${cooldown} s` : 'Renvoyer le code'}
-              </button>
-            </form>
-          )}
-
-          {step === 'done' && (
-            <div className="space-y-4">
-              <Alert title="Mot de passe modifié" variant="success" message="Pour votre sécurité, vous avez été déconnecté de tous vos appareils. Connectez-vous avec votre nouveau mot de passe." />
-              <Button className="w-full" onClick={() => navigate('/login')}>
-                Se connecter
-              </Button>
-            </div>
-          )}
-
-          {step !== 'done' && (
-            <button type="button" onClick={() => navigate('/login')} className="flex w-full items-center justify-center gap-1 text-sm text-gray-500 hover:text-gray-700">
-              <ArrowLeft className="h-4 w-4" />
-              Retour à la connexion
+            <button
+              type="button"
+              onClick={() => requestCode()}
+              disabled={busy || cooldown > 0}
+              className={`w-full ${authLinkClass} disabled:cursor-not-allowed disabled:text-gray-500 disabled:no-underline dark:disabled:text-gray-400`}
+            >
+              {cooldown > 0 ? `Renvoyer le code dans ${cooldown} s` : 'Renvoyer le code'}
             </button>
-          )}
-        </div>
-        <p className="mt-6 text-center text-xs text-gray-400">© {new Date().getFullYear()} Ambassade du Mali au Maroc</p>
+          </form>
+        )}
+
+        {step === 'done' && (
+          <div className="space-y-6">
+            <AuthAlert
+              variant="success"
+              title="Mot de passe modifié"
+              message="Pour votre sécurité, vous avez été déconnecté de tous vos appareils. Connectez-vous avec votre nouveau mot de passe."
+            />
+            <AuthButton type="button" onClick={() => navigate('/login')}>
+              Se connecter
+            </AuthButton>
+          </div>
+        )}
+
+        {step !== 'done' && (
+          <button
+            type="button"
+            onClick={() => navigate('/login')}
+            className="flex w-full items-center justify-center gap-1.5 rounded text-sm font-medium text-gray-600 transition hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0b7f45]/50 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:ring-[#5fc389]/60"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Retour à la connexion
+          </button>
+        )}
       </div>
-    </div>
+    </AuthShell>
   );
 }
 

@@ -102,6 +102,12 @@ export const useAuthStore = create<AuthState>()(
           const { data } = await api.post('/auth/login', { email, password, rememberMe });
           const { accessToken, refreshToken, user } = data.data;
 
+          // L'équipe d'administration de la plateforme communautaire a son propre espace (portail
+          // communautaire, /admin) : ses comptes n'entrent jamais dans le back-office de l'ambassade.
+          if (String(user?.activeRole?.name ?? '').startsWith('COMMUNITY_')) {
+            throw new Error("Ce compte n'a pas accès au back-office de l'ambassade.");
+          }
+
           authSetItem('poramma_access_token', accessToken);
           authSetItem('poramma_refresh_token', refreshToken);
 
