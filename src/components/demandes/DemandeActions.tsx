@@ -5,7 +5,7 @@
 import React, { useState } from 'react';
 import { useDemandes } from '../../hooks/useDemandes';
 import { useAuth } from '../../hooks/useAuth';
-import { AppStatus } from '../../types/demande';
+import { AppStatus, Priority } from '../../types/demande';
 import { PermissionCode } from '../../types/auth';
 import { Button } from '../ui/button';
 import { Modal } from '../ui/modal';
@@ -44,6 +44,8 @@ interface ActionSpec {
   canBeInternal: boolean;
   /** Toujours interne (ex. escalade). */
   alwaysInternal?: boolean;
+  /** Priorité imposée au dossier par l'action (escalade). */
+  priority?: Priority;
   onSuccessTab?: 'comments';
 }
 
@@ -122,7 +124,8 @@ const ACTIONS: Record<ActionKey, ActionSpec> = {
   escalate: {
     status: AppStatus.IN_REVIEW,
     title: 'Escalader la demande',
-    description: 'La demande est signalée à la hiérarchie. Le motif reste interne (l\'usager ne le voit pas).',
+    description: 'La demande est signalée à la hiérarchie et sa priorité passe à « Haute ». Le motif reste interne (l\'usager ne le voit pas).',
+    priority: Priority.HIGH,
     confirmLabel: 'Escalader',
     confirmClass: 'bg-purple-600 hover:bg-purple-700 text-white',
     messageLabel: 'Motif de l\'escalade',
@@ -187,6 +190,7 @@ export const DemandeActions: React.FC<DemandeActionsProps> = ({ demandeId, onNav
         status: spec.status,
         comment,
         isVisibleToUser: spec.alwaysInternal ? false : spec.canBeInternal ? !internalOnly : true,
+        ...(spec.priority ? { priority: spec.priority } : {}),
       });
       setActive(null);
       if (spec.onSuccessTab) onNavigateToTab?.(spec.onSuccessTab);

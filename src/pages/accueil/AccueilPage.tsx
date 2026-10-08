@@ -28,6 +28,7 @@ import {
   type MemberHit,
   type ReceptionSummary,
   type ReceptionTicket,
+  type UrgenceSlot,
   type WalkIn,
   type WalkInCategory,
 } from '../../lib/receptionApi';
@@ -73,7 +74,7 @@ const TicketCard: React.FC<{ ticket: ReceptionTicket; busy: boolean; onValidate:
         <dt className="text-gray-500">Date et heure</dt>
         <dd className="text-gray-900 dark:text-white">
           {formatDateShort(ticket.date)}
-          {ticket.startTime ? ` à ${ticket.startTime}` : ''}
+          {ticket.startTime ? ` à ${ticket.startTime}` : ticket.type === 'URGENCE' ? ' · reçu immédiatement' : ''}
         </dd>
         {ticket.agentName && (
           <>
@@ -220,6 +221,7 @@ const NewWalkInModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated
                 startIcon={<Search className="h-4 w-4" />}
                 endIcon={searching ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" /> : undefined}
               />
+              <p className="mt-1 text-xs text-gray-500">Seuls les membres enregistrés (profil validé) apparaissent. Sinon, saisissez le nom du visiteur.</p>
               {hits.length > 0 && (
                 <ul className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
                   {hits.map((h) => (
@@ -311,9 +313,13 @@ const NewWalkInModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated
 
 const EMPTY_URGENCE = { lastName: '', firstName: '', phone: '', city: '', subServiceId: '', motif: '', urgenceJustification: '' };
 
+/** Jour courant à Rabat (AAAA-MM-JJ) — les créneaux des services sont exprimés dans ce fuseau. */
+const todayInEmbassy = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Casablanca' });
+
 /**
- * Nouveau rendez-vous d'urgence : reçu sans créneau, avec ou sans compte Poramma. Sans compte, on saisit
- * seulement nom, prénom, téléphone et ville. Les agents du service choisi sont prévenus.
+ * Nouveau rendez-vous d'urgence, avec ou sans compte Poramma. Sans compte, on saisit seulement nom, prénom,
+ * téléphone et ville. L'horaire est soit « immédiatement » (reçu sans créneau), soit un créneau des horaires du
+ * service. Les agents du service choisi sont prévenus.
  */
 const UrgenceModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated: (t: ReceptionTicket) => void; subServices: SubServiceOption[] }> = ({ isOpen, onClose, onCreated, subServices }) => {
   const [mode, setMode] = useState<'visitor' | 'member'>('visitor');
@@ -325,6 +331,12 @@ const UrgenceModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated: 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [when, setWhen] = useState<'now' | 'slot'>('now');
+  const [date, setDate] = useState(todayInEmbassy());
+  const [time, setTime] = useState('');
+  const [slots, setSlots] = useState<UrgenceSlot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -335,8 +347,38 @@ const UrgenceModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated: 
       setHits([]);
       setError(null);
       setFieldErrors({});
+      setWhen('now');
+      setDate(todayInEmbassy());
+      setTime('');
+      setSlots([]);
+      setSlotsError(null);
     }
   }, [isOpen]);
+
+  // Horaires proposés = créneaux libres du service choisi pour le jour choisi.
+  useEffect(() => {
+    if (when !== 'slot' || !form.subServiceId || !date) {
+      setSlots([]);
+      setSlotsError(null);
+      return;
+    }
+    let cancelled = false;
+    setSlotsLoading(true);
+    setSlotsError(null);
+    setTime('');
+    receptionApi
+      .urgenceSlots(form.subServiceId, date)
+      .then((list) => !cancelled && setSlots(list))
+      .catch((e) => {
+        if (cancelled) return;
+        setSlots([]);
+        setSlotsError(apiErrorMessage(e, 'Impossible de charger les horaires du service.'));
+      })
+      .finally(() => !cancelled && setSlotsLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [when, form.subServiceId, date]);
 
   const search = async () => {
     if (query.trim().length < 2) return;
@@ -370,6 +412,7 @@ const UrgenceModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated: 
       if (!form.city.trim()) next.city = 'La ville est obligatoire.';
     }
     if (!form.subServiceId) next.subServiceId = 'Choisissez le service concerné.';
+    if (when === 'slot' && form.subServiceId && !time) next.time = "Choisissez un horaire, ou revenez à « Immédiatement ».";
     if (form.motif.trim().length < 3) next.motif = 'Indiquez le motif du rendez-vous.';
     if (form.urgenceJustification.trim().length < 3) next.urgenceJustification = "Justifiez l'urgence.";
     setFieldErrors(next);
@@ -385,6 +428,7 @@ const UrgenceModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated: 
       subServiceId: form.subServiceId,
       motif: form.motif.trim(),
       urgenceJustification: form.urgenceJustification.trim(),
+      ...(when === 'slot' ? { startTime: time, date } : {}),
       ...(mode === 'member'
         ? { userId: member!.id }
         : { visitor: { lastName: form.lastName.trim(), firstName: form.firstName.trim(), phone: form.phone.trim(), city: form.city.trim() } }),
@@ -407,7 +451,7 @@ const UrgenceModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated: 
       <div className="space-y-4 p-6">
         <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
-          <p>La personne est reçue sans créneau préalable. Tous les agents du service choisi sont prévenus immédiatement.</p>
+          <p>Tous les agents du service choisi sont prévenus immédiatement. Précisez si la personne est reçue tout de suite ou à un horaire du service.</p>
         </div>
 
         {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
@@ -477,6 +521,7 @@ const UrgenceModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated: 
               startIcon={<Search className="h-4 w-4" />}
               endIcon={searching ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" /> : undefined}
             />
+            <p className="mt-1 text-xs text-gray-500">Seuls les membres enregistrés (profil validé) apparaissent. Sinon, utilisez « Personne sans compte ».</p>
             {hits.length > 0 && (
               <ul className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
                 {hits.map((h) => (
@@ -504,6 +549,54 @@ const UrgenceModal: React.FC<{ isOpen: boolean; onClose: () => void; onCreated: 
           <Select label="Service concerné" placeholder="Sélectionnez un service" value={form.subServiceId} onChange={(v) => setForm({ ...form, subServiceId: v })} options={subServices} />
           {fieldErrors.subServiceId && <p className="mt-1 text-sm text-red-600">{fieldErrors.subServiceId}</p>}
         </div>
+
+        <div>
+          <label className={label}>Horaire *</label>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant={when === 'now' ? 'primary' : 'outline'} onClick={() => setWhen('now')}>
+              Immédiatement
+            </Button>
+            <Button size="sm" variant={when === 'slot' ? 'primary' : 'outline'} onClick={() => setWhen('slot')}>
+              À un horaire du service
+            </Button>
+          </div>
+          {when === 'slot' && (
+            <div className="mt-3 space-y-3">
+              <div className="max-w-[220px]">
+                <Input label="Jour" type="date" value={date} min={todayInEmbassy()} onChange={(e) => setDate(e.target.value)} />
+              </div>
+              {!form.subServiceId ? (
+                <p className="text-sm text-gray-500">Choisissez d'abord le service pour voir ses horaires.</p>
+              ) : slotsLoading ? (
+                <p className="text-sm text-gray-500">Chargement des horaires…</p>
+              ) : slotsError ? (
+                <p className="text-sm text-red-600">{slotsError}</p>
+              ) : slots.length === 0 ? (
+                <p className="text-sm text-amber-700">Aucun horaire libre ce jour-là pour ce service. Choisissez un autre jour ou « Immédiatement ».</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {slots.map((s) => (
+                    <button
+                      key={s.startTime}
+                      type="button"
+                      onClick={() => setTime(s.startTime)}
+                      className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        time === s.startTime
+                          ? 'border-brand-600 bg-brand-600 text-white'
+                          : 'border-gray-200 text-gray-700 hover:border-brand-400 dark:border-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {s.startTime}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {fieldErrors.time && <p className="text-sm text-red-600">{fieldErrors.time}</p>}
+            </div>
+          )}
+          {when === 'now' && <p className="mt-2 text-xs text-gray-500">La personne est reçue tout de suite, sans créneau réservé.</p>}
+        </div>
+
         <div>
           <Input label="Motif du rendez-vous *" value={form.motif} onChange={(e) => setForm({ ...form, motif: e.target.value })} placeholder="Raison du rendez-vous…" error={!!fieldErrors.motif} />
           {fieldErrors.motif && <p className="mt-1 text-sm text-red-600">{fieldErrors.motif}</p>}

@@ -198,6 +198,7 @@ export interface TraitementPayload {
   comment: string;
   isVisibleToUser: boolean;
   assignedAgentId?: string;   // Réassignation
+  priority?: Priority;        // Escalade : relève la priorité (le serveur ne l'abaisse jamais)
 }
 
 /**

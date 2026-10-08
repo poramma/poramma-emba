@@ -304,11 +304,11 @@ export const useDemandes = (): UseDemandesReturn => {
 
   const escalateDemande = useCallback(
     async (id: string, reason: string) => {
-      // Met à jour la priorité via le store (si dispo) ou logique locale
       await updateStatus(id, {
         status: AppStatus.IN_REVIEW,
         comment: `ESCALADE: ${reason}`,
         isVisibleToUser: false,
+        priority: Priority.HIGH,
       });
       console.log('[useDemandes] Demande escaladée:', id, reason);
     },

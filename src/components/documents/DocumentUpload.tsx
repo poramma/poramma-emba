@@ -13,6 +13,7 @@ import { Progress } from '../ui/progress';
 import { useDocuments } from '../../hooks/useDocuments';
 import { useToast } from '../../hooks/useToast';
 import { DocumentType, DocumentUploadPayload } from '../../types';
+import { documentTypeLabels } from '../../config/document-labels';
 
 interface DocumentUploadProps {
   ownerUserId: string;
@@ -22,9 +23,9 @@ interface DocumentUploadProps {
   onClose?: () => void;
 }
 
-const DOCUMENT_TYPES = Object.entries(DocumentType).map(([key, value]) => ({
+const DOCUMENT_TYPES = Object.values(DocumentType).map((value) => ({
   value,
-  label: key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()),
+  label: documentTypeLabels[value],
 }));
 
 const TYPES_WITH_EXPIRY = [

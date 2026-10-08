@@ -67,6 +67,14 @@ export interface CreateUrgencePayload {
   userId?: string | null;
   /** …ou personne sans compte : identité minimale. */
   visitor?: { lastName: string; firstName: string; phone: string; city: string } | null;
+  /** Absent = « immédiatement » ; sinon un créneau du service (HH:MM), le jour `date` (aujourd'hui par défaut). */
+  startTime?: string | null;
+  date?: string | null;
+}
+
+export interface UrgenceSlot {
+  startTime: string;
+  endTime: string;
 }
 
 export interface CreateWalkInPayload {
@@ -111,6 +119,11 @@ export const receptionApi = {
   },
   async createUrgence(payload: CreateUrgencePayload): Promise<ReceptionTicket> {
     const { data } = await api.post('/reception/urgences', payload);
+    return data.data;
+  },
+  /** Créneaux libres d'un service pour un jour : les horaires proposables à une urgence. */
+  async urgenceSlots(subServiceId: string, date: string): Promise<UrgenceSlot[]> {
+    const { data } = await api.get('/reception/urgences/slots', { params: { subServiceId, date } });
     return data.data;
   },
   async createDossier(id: string): Promise<WalkIn> {

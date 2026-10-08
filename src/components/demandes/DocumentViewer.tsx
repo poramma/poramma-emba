@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../lib/api';
 import { formatFileSize, formatDateShort } from '../../lib/date';
+import { documentTypeLabels } from '../../config/document-labels';
 
 const MIME_TYPE_ICONS: Record<string, React.ElementType> = {
   'application/pdf': FileText,
@@ -268,7 +269,10 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ documents: propD
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{doc.file?.originalName || 'Document sans nom'}</p>
                 <Badge className={`${status.color} border-0 text-xs`}>{status.label}</Badge>
               </div>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mt-0.5">
+                {documentTypeLabels[doc.type] ?? 'Document'}
+              </p>
+              <p className="text-xs text-gray-500">
                 {formatFileSize(doc.file?.size || 0)} • Reçu le {formatDateShort(doc.createdAt)}
               </p>
               {doc.reviewNote && (

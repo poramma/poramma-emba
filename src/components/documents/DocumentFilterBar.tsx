@@ -13,6 +13,7 @@ import { Badge } from '../ui/badge';
 import { useDocuments } from '../../hooks/useDocuments';
 import { DocumentType, DocStatus, DocumentFilters } from '../../types';
 import { DocumentCategory } from '../../types/document';
+import { documentTypeLabels } from '../../config/document-labels';
 
 interface DocumentFilterBarProps {
   filters: DocumentFilters;
@@ -23,9 +24,9 @@ interface DocumentFilterBarProps {
   totalCount?: number;
 }
 
-const DOCUMENT_TYPES = Object.entries(DocumentType).map(([key, value]) => ({
+const DOCUMENT_TYPES = Object.values(DocumentType).map((value) => ({
   value,
-  label: key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()),
+  label: documentTypeLabels[value],
 }));
 
 const STATUS_OPTIONS = [
